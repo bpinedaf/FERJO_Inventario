@@ -61,19 +61,40 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const fd = new FormData(e.target);
   const id = fd.get('id_del_articulo');
+  const file = fd.get('file');
+  if(!file){ alert('Selecciona un archivo'); return; }
+
+  // Lee el archivo y conviértelo a base64 (dataURL)
+  const buf = await file.arrayBuffer();
+  let binary = '';
+  const bytes = new Uint8Array(buf);
+  const chunkSize = 0x8000;
+  for (let i=0; i<bytes.length; i+=chunkSize){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunkSize));
+  }
+  const base64 = 'data:' + (file.type || 'application/octet-stream') + ';base64,' + btoa(binary);
+
   const url = apiBase() + '?path=upload';
-  const res = await fetch(url, { method:'POST', body: fd });
+  const payload = { filename: file.name, mimeType: file.type, base64 };
+
+  const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
   const txt = await res.text();
   let data; try{ data = JSON.parse(txt); } catch { data = { raw: txt }; }
   showResp(document.getElementById('respFoto'), data);
+
   if(data && data.ok && data.publicUrl){
     // Asigna al producto como image_url
     const upsertUrl = apiBase() + '?path=product_upsert';
-    const out = await fetchJSON(upsertUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id_del_articulo:id, image_url: data.publicUrl }) });
+    const out = await fetchJSON(upsertUrl, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id_del_articulo:id, image_url: data.publicUrl })
+    });
     const log = document.getElementById('respFoto');
     log.textContent += "\n\nAsignado a image_url:\n" + JSON.stringify(out, null, 2);
   }
 });
+
 
 // Movimientos y recibo
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
