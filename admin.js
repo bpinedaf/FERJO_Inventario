@@ -57,43 +57,52 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
 });
 
 // Fotos: upload y asignar a producto
-document.getElementById('formFoto').addEventListener('submit', async (e)=>{
+document.getElementById('formFoto').addEventListener('submit', (e)=>{
   e.preventDefault();
-  const fd = new FormData(e.target);
-  const id = fd.get('id_del_articulo');
+  const fd  = new FormData(e.target);
+  const id  = fd.get('id_del_articulo');
   const file = fd.get('file');
   if(!file){ alert('Selecciona un archivo'); return; }
 
-  // Lee el archivo y conviértelo a base64 (dataURL)
-  const buf = await file.arrayBuffer();
-  let binary = '';
-  const bytes = new Uint8Array(buf);
-  const chunkSize = 0x8000;
-  for (let i=0; i<bytes.length; i+=chunkSize){
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunkSize));
-  }
-  const base64 = 'data:' + (file.type || 'application/octet-stream') + ';base64,' + btoa(binary);
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result; // ej: data:image/jpeg;base64,/9j/4AAQ...
+    const url = apiBase() + '?path=upload';
+    const payload = { filename: file.name, mimeType: file.type, base64 };
 
-  const url = apiBase() + '?path=upload';
-  const payload = { filename: file.name, mimeType: file.type, base64 };
+    try {
+      const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const txt = await res.text();
+      let data; try{ data = JSON.parse(txt); } catch { data = { raw: txt }; }
+      showResp(document.getElementById('respFoto'), data);
+      console.log('UPLOAD resp:', data);
 
-  const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-  const txt = await res.text();
-  let data; try{ data = JSON.parse(txt); } catch { data = { raw: txt }; }
-  showResp(document.getElementById('respFoto'), data);
-
-  if(data && data.ok && data.publicUrl){
-    // Asigna al producto como image_url
-    const upsertUrl = apiBase() + '?path=product_upsert';
-    const out = await fetchJSON(upsertUrl, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id_del_articulo:id, image_url: data.publicUrl })
-    });
-    const log = document.getElementById('respFoto');
-    log.textContent += "\n\nAsignado a image_url:\n" + JSON.stringify(out, null, 2);
-  }
+      if(data && data.ok && data.publicUrl){
+        const upsertUrl = apiBase() + '?path=product_upsert';
+        const out = await fetchJSON(upsertUrl, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ id_del_articulo:id, image_url: data.publicUrl })
+        });
+        const log = document.getElementById('respFoto');
+        log.textContent += "\n\nAsignado a image_url:\n" + JSON.stringify(out, null, 2);
+      }
+    } catch (err) {
+      console.error('UPLOAD error:', err);
+      showResp(document.getElementById('respFoto'), { error: String(err) });
+    }
+  };
+  reader.onerror = (ev)=> {
+    console.error('FileReader error', ev);
+    showResp(document.getElementById('respFoto'), { error: 'FileReader error' });
+  };
+  reader.readAsDataURL(file);
 });
+
 
 // Movimientos y recibo
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
