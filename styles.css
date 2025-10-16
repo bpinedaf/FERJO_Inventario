@@ -1,0 +1,24 @@
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:#f8f9fb;color:#111}
+header{background:#111;color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{font-size:1.25rem;margin:0}
+.api-box{display:flex;align-items:center;gap:8px}
+.api-box input{min-width:360px;padding:10px;border-radius:10px;border:1px solid #444}
+.api-box button{padding:10px 12px;border:0;border-radius:10px;background:#fff;color:#111;cursor:pointer}
+.api-box #apiStatus{opacity:.8;font-size:.9rem}
+
+.tabs{display:flex;gap:8px;background:#fff;padding:8px 12px;border-bottom:1px solid #eee;position:sticky;top:0;z-index:9}
+.tab{padding:10px 14px;border:1px solid #ddd;background:#fff;border-radius:10px;cursor:pointer}
+.tab.active{background:#111;color:#fff;border-color:#111}
+
+.panel{display:none;padding:16px 24px}
+.panel.active{display:block}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:8px 0 16px}
+label{display:flex;flex-direction:column;gap:6px;font-size:.95rem}
+input,select,textarea{padding:10px;border-radius:10px;border:1px solid #ccc;background:#fff}
+.actions{display:flex;gap:8px}
+.actions button{padding:10px 12px;border:0;border-radius:10px;background:#111;color:#fff;cursor:pointer}
+.resp{background:#0b1020;color:#d4f2ff;padding:12px;border-radius:10px;white-space:pre-wrap}
+.help{color:#555;font-size:.9rem}
+
+footer{padding:20px;text-align:center;color:#666}
