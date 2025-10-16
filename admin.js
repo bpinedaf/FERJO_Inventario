@@ -95,7 +95,6 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   }
 });
 
-
 // Movimientos y recibo
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
   e.preventDefault();
