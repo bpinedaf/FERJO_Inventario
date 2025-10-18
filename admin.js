@@ -70,27 +70,25 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   const file = form.querySelector('[name="file"]').files[0];
   if(!file){ alert('Selecciona un archivo'); return; }
 
-  // Construimos un FormData limpio y explícito
   const fd = new FormData();
-  fd.append('file', file, file.name);            // ← nombre de campo EXACTAMENTE 'file'
-  fd.append('id_del_articulo', id);              // ← opcional (por si quieres loguearlo luego)
+  fd.append('file', file, file.name);   // nombre del campo EXACTO: 'file'
+  fd.append('id_del_articulo', id);     // opcional
 
   const uploadUrl = apiBase() + '?path=upload';
-  const data = await fetchJSON(uploadUrl, { method:'POST', body: fd });
+  const data = await fetchJSON(uploadUrl, { method:'POST', body: fd }); // sin headers
   showResp(document.getElementById('respFoto'), data);
 
   if(data && data.ok && data.publicUrl){
     const fd2 = new FormData();
     fd2.append('id_del_articulo', id);
     fd2.append('image_url', data.publicUrl);
-
     const upsertUrl = apiBase() + '?path=product_upsert';
     const out = await fetchJSON(upsertUrl, { method:'POST', body: fd2 });
-
     const log = document.getElementById('respFoto');
     log.textContent += "\n\nAsignado a image_url:\n" + JSON.stringify(out, null, 2);
   }
 });
+
 
 // Movimientos y recibo
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
