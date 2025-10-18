@@ -95,13 +95,14 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const fd = new FormData(e.target);
-  const obj = Object.fromEntries(fd.entries());
-  obj.cantidad = Number(obj.cantidad || 0);
+  // fuerza número
+  fd.set('cantidad', Number(fd.get('cantidad') || 0));
+
   const url = apiBase() + '?path=movement';
-  const out = await fetchJSON(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(obj) });
+  const out = await fetchJSON(url, { method:'POST', body: fd });
   showResp(document.getElementById('respMovimiento'), out);
-  if(out && out.ok && obj.tipo==='salida' && out.id_movimiento){
-    // Autocompletar id en formulario de recibo
+
+  if(out && out.ok && fd.get('tipo')==='salida' && out.id_movimiento){
     document.querySelector('#formRecibo [name="id_movimiento"]').value = out.id_movimiento;
   }
 });
@@ -112,7 +113,5 @@ document.getElementById('formRecibo').addEventListener('submit', async (e)=>{
   const url = apiBase() + '?path=receipt&id=' + encodeURIComponent(id);
   const out = await fetchJSON(url);
   showResp(document.getElementById('respRecibo'), out);
-  if(out && out.ok && out.url){
-    window.open(out.url, '_blank');
-  }
+  if(out && out.ok && out.url){ window.open(out.url, '_blank'); }
 });
