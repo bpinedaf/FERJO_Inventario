@@ -95,52 +95,75 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
 // -------- Fotos: upload y asignar a producto --------
 // -------- Fotos: upload y asignar a producto (sin preflight) --------
 // -------- Fotos: upload y asignar a producto (no-cors + refresh) --------
+// -------- Fotos: upload por FORM cross-origin + verificación --------
 document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const respEl = document.getElementById('respFoto');
   respEl.textContent = '';
 
-  const form = e.target;
-  const id   = form.querySelector('[name="id_del_articulo"]').value.trim();
-  const file = form.querySelector('[name="file"]').files[0];
+  const base = apiBase(); // deja en API URL el Web App (sirve con script.google.com o googleusercontent.com)
+  const action = (base.includes('?') ? base + '&' : base + '?') + 'path=upload';
+
+  const formUI = e.target;
+  const id   = formUI.querySelector('[name="id_del_articulo"]').value.trim();
+  const fileInput = formUI.querySelector('[name="file"]');
+  const file = fileInput && fileInput.files && fileInput.files[0];
   if(!file){ alert('Selecciona un archivo'); return; }
 
-  // Lee archivo como dataURL
-  const toDataURL = (f)=> new Promise((resolve, reject)=>{
-    const fr = new FileReader();
-    fr.onload  = ()=> resolve(fr.result);
-    fr.onerror = ()=> reject(new Error('FileReader error'));
-    fr.readAsDataURL(f);
-  });
-
-  try {
-    const base64 = await toDataURL(file);
-
-    // 1) Upload (no-cors): el backend asigna image_url internamente
-    const uploadUrl = apiUrlWithPath('upload'); // incluye ? o & según sea el caso
-    const payload   = { filename:file.name, mimeType:file.type || 'application/octet-stream', base64, id_del_articulo:id };
-
-    showResp(respEl, { debug:'POST upload (no-cors text/plain)', uploadUrl });
-    await fetch(uploadUrl, {
-      method: 'POST',
-      mode: 'no-cors', // <- evita CORS y preflight
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify(payload)
-    });
-
-    // 2) Espera breve y verifica con product_fetch
-    appendResp(respEl, { debug:'Verificando image_url en hoja...' });
-    setTimeout(async ()=>{
-      const checkUrl = apiUrlWithPath('product_fetch', { id });
-      const res = await fetchJSON(checkUrl);
-      appendResp(respEl, { debug:'product_fetch', res });
-    }, 1200); // pequeño delay para que GAS escriba en la hoja
-
-  } catch (err) {
-    showResp(respEl, { error:String(err) });
+  // 1) Creamos (una sola vez) un iframe oculto como target del form
+  let iframe = document.getElementById('gas_xfer_iframe');
+  if(!iframe){
+    iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.name = 'gas_xfer_iframe';
+    iframe.id = 'gas_xfer_iframe';
+    document.body.appendChild(iframe);
   }
-});
 
+  // 2) Construimos un <form> temporal (multipart) que apunte al Web App
+  const realForm = document.createElement('form');
+  realForm.action = action;
+  realForm.method = 'POST';
+  realForm.enctype = 'multipart/form-data';
+  realForm.target = 'gas_xfer_iframe';
+  realForm.style.display = 'none';
+
+  // Campo hidden con el id_del_articulo (el backend ya lo sabe usar)
+  const hid = document.createElement('input');
+  hid.type = 'hidden';
+  hid.name = 'id_del_articulo';
+  hid.value = id;
+  realForm.appendChild(hid);
+
+  // 3) Movemos el input tipo file al form temporal (clonamos un placeholder para no perder el UI)
+  const placeholder = fileInput.cloneNode();
+  placeholder.value = ''; // limpio
+  fileInput.parentNode.insertBefore(placeholder, fileInput);
+  realForm.appendChild(fileInput);
+
+  document.body.appendChild(realForm);
+
+  // 4) Enviamos el formulario (cross-origin, sin CORS)
+  try{
+    // Nota: no podremos leer respuesta; el backend sube archivo y actualiza image_url
+    realForm.submit();
+    // Pequeño log
+    respEl.textContent = JSON.stringify({ debug:'FORM submitted to GAS', action }, null, 2);
+  } finally {
+    // Restituimos el input file al formulario original y limpiamos el temporal
+    placeholder.parentNode.replaceChild(fileInput, placeholder);
+    document.body.removeChild(realForm);
+  }
+
+  // 5) Verificamos en la hoja tras un pequeño delay
+  setTimeout(async ()=>{
+    const url = (base.includes('?') ? base + '&' : base + '?') + new URLSearchParams({ path:'product_fetch', id }).toString();
+    const res = await fetch(url).then(r=>r.text()).catch(err=>JSON.stringify({error:String(err)}));
+    // intenta parsear
+    let obj; try{ obj = JSON.parse(res); } catch { obj = { raw: res }; }
+    respEl.textContent += "\n\n" + JSON.stringify({ debug:'product_fetch', obj }, null, 2);
+  }, 1500); // si lo ves justo, súbelo a 2500ms
+});
 
 
 // -------- Movimientos y recibo --------
