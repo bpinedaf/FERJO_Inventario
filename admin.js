@@ -29,36 +29,60 @@ function apiUrlWithPath(path, extraParams = {}){
   return base + sep + qs;
 }
 
-function showResp(el, data){ el.textContent = JSON.stringify(data, null, 2); }
+function showResp(el, data){
+  try {
+    el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  } catch {
+    el.textContent = String(data);
+  }
+}
+
+function appendResp(el, data){
+  const prev = el.textContent || '';
+  const block = (typeof data === 'string') ? data : JSON.stringify(data, null, 2);
+  el.textContent = (prev ? prev + "\n\n" : "") + block;
+}
 
 async function fetchJSON(url, opts={}){
-  const res = await fetch(url, opts);
-  const txt = await res.text();
-  try { return JSON.parse(txt); } catch { return { raw: txt }; }
+  try{
+    const res = await fetch(url, opts);
+    const txt = await res.text();
+    try { return JSON.parse(txt); } catch { return { raw: txt, status: res.status, ok: res.ok }; }
+  }catch(err){
+    // Mostramos el error de red
+    return { error: String(err), url, opts: { method: opts.method } };
+  }
 }
 
 // -------- Productos: upsert y fetch --------
 document.getElementById('formProducto').addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const fd = new FormData(e.target);
+  const respEl = document.getElementById('respProducto');
+  respEl.textContent = '';
 
-  // elimina vacíos
+  const fd = new FormData(e.target);
   for (const [k,v] of Array.from(fd.entries())) {
     if (v==='' || v==null) fd.delete(k);
   }
 
   const url = apiUrlWithPath('product_upsert');
-  // ¡sin headers! FormData evita preflight
+  appendResp(respEl, { debug:'POST product_upsert', url });
+
   const out = await fetchJSON(url, { method:'POST', body: fd });
-  showResp(document.getElementById('respProducto'), out);
+  showResp(respEl, out);
 });
 
 document.getElementById('cargarProducto').addEventListener('click', async ()=>{
+  const respEl = document.getElementById('respProducto');
+  respEl.textContent = '';
+
   const id = document.querySelector('#formProducto [name="id_del_articulo"]').value.trim();
   if(!id){ alert('Ingresa un id_del_articulo'); return; }
   const url = apiUrlWithPath('product_fetch', { id });
+  appendResp(respEl, { debug:'GET product_fetch', url });
+
   const data = await fetchJSON(url);
-  showResp(document.getElementById('respProducto'), data);
+  showResp(respEl, data);
   if(data && data.product){
     const f = document.getElementById('formProducto');
     for(const k in data.product){
@@ -71,41 +95,60 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
 // -------- Fotos: upload y asignar a producto --------
 document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   e.preventDefault();
+  const respEl = document.getElementById('respFoto');
+  respEl.textContent = '';
 
-  const form = e.target;
-  const id   = form.querySelector('[name="id_del_articulo"]').value.trim();
-  const file = form.querySelector('[name="file"]').files[0];
-  if(!file){ alert('Selecciona un archivo'); return; }
+  try{
+    const form = e.target;
+    const id   = form.querySelector('[name="id_del_articulo"]').value.trim();
+    const fileInput = form.querySelector('[name="file"]');
+    const file = fileInput && fileInput.files && fileInput.files[0];
+    if(!file){ alert('Selecciona un archivo'); return; }
 
-  const fd = new FormData();
-  fd.append('file', file, file.name);   // nombre del campo EXACTO: 'file'
-  fd.append('id_del_articulo', id);     // opcional
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    fd.append('id_del_articulo', id);
 
-  const uploadUrl = apiUrlWithPath('upload');
-  const data = await fetchJSON(uploadUrl, { method:'POST', body: fd }); // sin headers
-  showResp(document.getElementById('respFoto'), data);
+    const uploadUrl = apiUrlWithPath('upload');
+    appendResp(respEl, { debug:'POST upload', uploadUrl });
 
-  if(data && data.ok && data.publicUrl){
-    const fd2 = new FormData();
-    fd2.append('id_del_articulo', id);
-    fd2.append('image_url', data.publicUrl);
-    const upsertUrl = apiUrlWithPath('product_upsert');
-    const out = await fetchJSON(upsertUrl, { method:'POST', body: fd2 });
-    const log = document.getElementById('respFoto');
-    log.textContent += "\n\nAsignado a image_url:\n" + JSON.stringify(out, null, 2);
+    const data = await fetchJSON(uploadUrl, { method:'POST', body: fd });
+    appendResp(respEl, { debug:'upload response', data });
+
+    if(data && data.ok && data.publicUrl){
+      const fd2 = new FormData();
+      fd2.append('id_del_articulo', id);
+      fd2.append('image_url', data.publicUrl);
+
+      const upsertUrl = apiUrlWithPath('product_upsert');
+      appendResp(respEl, { debug:'POST product_upsert (image_url)', upsertUrl, image_url: data.publicUrl });
+
+      const out = await fetchJSON(upsertUrl, { method:'POST', body: fd2 });
+      appendResp(respEl, { debug:'upsert response', out });
+    } else if (data && data.error) {
+      appendResp(respEl, { note:'upload error returned by server', data });
+    } else {
+      appendResp(respEl, { note:'upload unexpected response', data });
+    }
+  } catch(err){
+    appendResp(respEl, { error:String(err) });
   }
 });
 
 // -------- Movimientos y recibo --------
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
   e.preventDefault();
+  const respEl = document.getElementById('respMovimiento');
+  respEl.textContent = '';
+
   const fd = new FormData(e.target);
-  // fuerza número
   fd.set('cantidad', Number(fd.get('cantidad') || 0));
 
   const url = apiUrlWithPath('movement');
+  appendResp(respEl, { debug:'POST movement', url });
+
   const out = await fetchJSON(url, { method:'POST', body: fd });
-  showResp(document.getElementById('respMovimiento'), out);
+  showResp(respEl, out);
 
   if(out && out.ok && fd.get('tipo')==='salida' && out.id_movimiento){
     document.querySelector('#formRecibo [name="id_movimiento"]').value = out.id_movimiento;
@@ -114,9 +157,14 @@ document.getElementById('formMovimiento').addEventListener('submit', async (e)=>
 
 document.getElementById('formRecibo').addEventListener('submit', async (e)=>{
   e.preventDefault();
+  const respEl = document.getElementById('respRecibo');
+  respEl.textContent = '';
+
   const id = new FormData(e.target).get('id_movimiento');
   const url = apiUrlWithPath('receipt', { id });
+  appendResp(respEl, { debug:'GET receipt', url });
+
   const out = await fetchJSON(url);
-  showResp(document.getElementById('respRecibo'), out);
+  showResp(respEl, out);
   if(out && out.ok && out.url){ window.open(out.url, '_blank'); }
 });
