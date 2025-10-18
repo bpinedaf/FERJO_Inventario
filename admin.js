@@ -94,6 +94,7 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
 
 // -------- Fotos: upload y asignar a producto --------
 // -------- Fotos: upload y asignar a producto (sin preflight) --------
+// -------- Fotos: upload y asignar a producto (no-cors + refresh) --------
 document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const respEl = document.getElementById('respFoto');
@@ -104,53 +105,42 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   const file = form.querySelector('[name="file"]').files[0];
   if(!file){ alert('Selecciona un archivo'); return; }
 
-  // 1) Leemos el archivo como dataURL (base64)
-  const toDataURL = (file) => new Promise((resolve, reject)=>{
+  // Lee archivo como dataURL
+  const toDataURL = (f)=> new Promise((resolve, reject)=>{
     const fr = new FileReader();
-    fr.onload  = () => resolve(fr.result);  // ej: data:image/jpeg;base64,/9j/4AAQ...
-    fr.onerror = () => reject(new Error('FileReader error'));
-    fr.readAsDataURL(file);
+    fr.onload  = ()=> resolve(fr.result);
+    fr.onerror = ()=> reject(new Error('FileReader error'));
+    fr.readAsDataURL(f);
   });
 
   try {
     const base64 = await toDataURL(file);
 
-    // 2) Subimos al GAS con JSON pero usando Content-Type: text/plain (NO preflight)
-    const uploadUrl = apiUrlWithPath('upload');
-    const payload   = { filename: file.name, mimeType: file.type || 'application/octet-stream', base64 };
-    showResp(respEl, { debug: 'POST upload (text/plain)', uploadUrl });
+    // 1) Upload (no-cors): el backend asigna image_url internamente
+    const uploadUrl = apiUrlWithPath('upload'); // incluye ? o & según sea el caso
+    const payload   = { filename:file.name, mimeType:file.type || 'application/octet-stream', base64, id_del_articulo:id };
 
-    const uploadRes = await fetchJSON(uploadUrl, {
+    showResp(respEl, { debug:'POST upload (no-cors text/plain)', uploadUrl });
+    await fetch(uploadUrl, {
       method: 'POST',
+      mode: 'no-cors', // <- evita CORS y preflight
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(payload)
     });
-    showResp(respEl, { debug: 'upload response', uploadRes });
 
-    // 3) Si subió bien, asignamos la URL al producto
-    if (uploadRes && uploadRes.ok && uploadRes.publicUrl) {
-      const upsertUrl = apiUrlWithPath('product_upsert');
-
-      // Para evitar otro preflight, mandamos también como text/plain
-      const upsertPayload = { id_del_articulo: id, image_url: uploadRes.publicUrl };
-      const upsertRes = await fetchJSON(upsertUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        body: JSON.stringify(upsertPayload)
-      });
-
-      showResp(respEl, {
-        debug: 'product_upsert (image_url) response',
-        upsertRes
-      });
-    } else {
-      showResp(respEl, { error: 'Upload falló', uploadRes });
-    }
+    // 2) Espera breve y verifica con product_fetch
+    appendResp(respEl, { debug:'Verificando image_url en hoja...' });
+    setTimeout(async ()=>{
+      const checkUrl = apiUrlWithPath('product_fetch', { id });
+      const res = await fetchJSON(checkUrl);
+      appendResp(respEl, { debug:'product_fetch', res });
+    }, 1200); // pequeño delay para que GAS escriba en la hoja
 
   } catch (err) {
-    showResp(respEl, { error: String(err) });
+    showResp(respEl, { error:String(err) });
   }
 });
+
 
 
 // -------- Movimientos y recibo --------
