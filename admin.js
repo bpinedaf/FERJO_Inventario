@@ -65,17 +65,20 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
 document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   e.preventDefault();
 
-  const fd  = new FormData(e.target);
-  const id  = fd.get('id_del_articulo');
-  const file = fd.get('file');
+  const form = e.target;
+  const id   = form.querySelector('[name="id_del_articulo"]').value.trim();
+  const file = form.querySelector('[name="file"]').files[0];
   if(!file){ alert('Selecciona un archivo'); return; }
 
-  // 1) Subir archivo al GAS (multipart)
+  // Construimos un FormData limpio y explícito
+  const fd = new FormData();
+  fd.append('file', file, file.name);            // ← nombre de campo EXACTAMENTE 'file'
+  fd.append('id_del_articulo', id);              // ← opcional (por si quieres loguearlo luego)
+
   const uploadUrl = apiBase() + '?path=upload';
-  let data = await fetchJSON(uploadUrl, { method:'POST', body: fd });
+  const data = await fetchJSON(uploadUrl, { method:'POST', body: fd });
   showResp(document.getElementById('respFoto'), data);
 
-  // 2) Si subió bien, asignar URL al producto
   if(data && data.ok && data.publicUrl){
     const fd2 = new FormData();
     fd2.append('id_del_articulo', id);
@@ -88,8 +91,6 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
     log.textContent += "\n\nAsignado a image_url:\n" + JSON.stringify(out, null, 2);
   }
 });
-
-
 
 // Movimientos y recibo
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
