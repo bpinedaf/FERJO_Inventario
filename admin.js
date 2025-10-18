@@ -96,73 +96,55 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
 // -------- Fotos: upload y asignar a producto (sin preflight) --------
 // -------- Fotos: upload y asignar a producto (no-cors + refresh) --------
 // -------- Fotos: upload por FORM cross-origin + verificación --------
+// -------- Fotos: upload con x-www-form-urlencoded (sin CORS) --------
 document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const respEl = document.getElementById('respFoto');
   respEl.textContent = '';
 
-  const base = apiBase(); // deja en API URL el Web App (sirve con script.google.com o googleusercontent.com)
-  const action = (base.includes('?') ? base + '&' : base + '?') + 'path=upload';
-
-  const formUI = e.target;
-  const id   = formUI.querySelector('[name="id_del_articulo"]').value.trim();
-  const fileInput = formUI.querySelector('[name="file"]');
-  const file = fileInput && fileInput.files && fileInput.files[0];
+  const form = e.target;
+  const id   = form.querySelector('[name="id_del_articulo"]').value.trim();
+  const file = form.querySelector('[name="file"]').files[0];
   if(!file){ alert('Selecciona un archivo'); return; }
 
-  // 1) Creamos (una sola vez) un iframe oculto como target del form
-  let iframe = document.getElementById('gas_xfer_iframe');
-  if(!iframe){
-    iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.name = 'gas_xfer_iframe';
-    iframe.id = 'gas_xfer_iframe';
-    document.body.appendChild(iframe);
-  }
+  // Lee archivo como base64 (solo la parte después de la coma)
+  const toBase64 = (f)=> new Promise((resolve, reject)=>{
+    const fr = new FileReader();
+    fr.onload  = ()=> resolve(String(fr.result).split(',')[1] || '');
+    fr.onerror = ()=> reject(new Error('FileReader error'));
+    fr.readAsDataURL(f);
+  });
 
-  // 2) Construimos un <form> temporal (multipart) que apunte al Web App
-  const realForm = document.createElement('form');
-  realForm.action = action;
-  realForm.method = 'POST';
-  realForm.enctype = 'multipart/form-data';
-  realForm.target = 'gas_xfer_iframe';
-  realForm.style.display = 'none';
-
-  // Campo hidden con el id_del_articulo (el backend ya lo sabe usar)
-  const hid = document.createElement('input');
-  hid.type = 'hidden';
-  hid.name = 'id_del_articulo';
-  hid.value = id;
-  realForm.appendChild(hid);
-
-  // 3) Movemos el input tipo file al form temporal (clonamos un placeholder para no perder el UI)
-  const placeholder = fileInput.cloneNode();
-  placeholder.value = ''; // limpio
-  fileInput.parentNode.insertBefore(placeholder, fileInput);
-  realForm.appendChild(fileInput);
-
-  document.body.appendChild(realForm);
-
-  // 4) Enviamos el formulario (cross-origin, sin CORS)
   try{
-    // Nota: no podremos leer respuesta; el backend sube archivo y actualiza image_url
-    realForm.submit();
-    // Pequeño log
-    respEl.textContent = JSON.stringify({ debug:'FORM submitted to GAS', action }, null, 2);
-  } finally {
-    // Restituimos el input file al formulario original y limpiamos el temporal
-    placeholder.parentNode.replaceChild(fileInput, placeholder);
-    document.body.removeChild(realForm);
-  }
+    const base64 = await toBase64(file);
 
-  // 5) Verificamos en la hoja tras un pequeño delay
-  setTimeout(async ()=>{
-    const url = (base.includes('?') ? base + '&' : base + '?') + new URLSearchParams({ path:'product_fetch', id }).toString();
-    const res = await fetch(url).then(r=>r.text()).catch(err=>JSON.stringify({error:String(err)}));
-    // intenta parsear
-    let obj; try{ obj = JSON.parse(res); } catch { obj = { raw: res }; }
+    // 1) POST form-encoded al GAS (no añadimos headers → el navegador pone x-www-form-urlencoded)
+    const uploadUrl = apiUrlWithPath('upload');
+    const body = new URLSearchParams({
+      id_del_articulo: id,
+      filename: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      base64: base64
+    });
+
+    // Log visible
+    respEl.textContent = JSON.stringify({ debug: 'POST upload (form-encoded)', uploadUrl }, null, 2);
+
+    const res = await fetch(uploadUrl, { method:'POST', body }); // simple request → sin preflight
+    const txt = await res.text();
+    let up; try { up = JSON.parse(txt); } catch { up = { raw: txt, status: res.status }; }
+    // Mostramos lo que respondió (si el CORS permite; si no, vendrá vacío y no pasa nada)
+    respEl.textContent += "\n\n" + JSON.stringify({ debug:'upload response', up }, null, 2);
+
+    // 2) Verificar que ya esté el image_url en la hoja
+    const checkUrl = apiUrlWithPath('product_fetch', { id });
+    const ver = await fetch(checkUrl).then(r=>r.text());
+    let obj; try { obj = JSON.parse(ver); } catch { obj = { raw: ver }; }
     respEl.textContent += "\n\n" + JSON.stringify({ debug:'product_fetch', obj }, null, 2);
-  }, 1500); // si lo ves justo, súbelo a 2500ms
+
+  } catch(err){
+    respEl.textContent = JSON.stringify({ error: String(err) }, null, 2);
+  }
 });
 
 
