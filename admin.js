@@ -21,15 +21,23 @@ document.getElementById('saveApi').addEventListener('click', ()=>{
   setTimeout(()=> apiStatus.textContent='', 1500);
 });
 
-// Helpers
+// -------- Helpers --------
+function apiUrlWithPath(path, extraParams = {}){
+  const base = apiBase();                     // puede traer ?user_content_key=...&lib=...
+  const sep  = base.includes('?') ? '&' : '?';
+  const qs   = new URLSearchParams({ path, ...extraParams }).toString();
+  return base + sep + qs;
+}
+
 function showResp(el, data){ el.textContent = JSON.stringify(data, null, 2); }
+
 async function fetchJSON(url, opts={}){
   const res = await fetch(url, opts);
   const txt = await res.text();
   try { return JSON.parse(txt); } catch { return { raw: txt }; }
 }
 
-// Productos: upsert y fetch
+// -------- Productos: upsert y fetch --------
 document.getElementById('formProducto').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -39,17 +47,16 @@ document.getElementById('formProducto').addEventListener('submit', async (e)=>{
     if (v==='' || v==null) fd.delete(k);
   }
 
-  const url = apiBase() + '?path=product_upsert';
+  const url = apiUrlWithPath('product_upsert');
   // ¡sin headers! FormData evita preflight
   const out = await fetchJSON(url, { method:'POST', body: fd });
   showResp(document.getElementById('respProducto'), out);
 });
 
-
 document.getElementById('cargarProducto').addEventListener('click', async ()=>{
   const id = document.querySelector('#formProducto [name="id_del_articulo"]').value.trim();
   if(!id){ alert('Ingresa un id_del_articulo'); return; }
-  const url = apiBase() + '?path=product_fetch&id=' + encodeURIComponent(id);
+  const url = apiUrlWithPath('product_fetch', { id });
   const data = await fetchJSON(url);
   showResp(document.getElementById('respProducto'), data);
   if(data && data.product){
@@ -61,7 +68,7 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
   }
 });
 
-// Fotos: upload y asignar a producto
+// -------- Fotos: upload y asignar a producto --------
 document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   e.preventDefault();
 
@@ -74,7 +81,7 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   fd.append('file', file, file.name);   // nombre del campo EXACTO: 'file'
   fd.append('id_del_articulo', id);     // opcional
 
-  const uploadUrl = apiBase() + '?path=upload';
+  const uploadUrl = apiUrlWithPath('upload');
   const data = await fetchJSON(uploadUrl, { method:'POST', body: fd }); // sin headers
   showResp(document.getElementById('respFoto'), data);
 
@@ -82,22 +89,21 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
     const fd2 = new FormData();
     fd2.append('id_del_articulo', id);
     fd2.append('image_url', data.publicUrl);
-    const upsertUrl = apiBase() + '?path=product_upsert';
+    const upsertUrl = apiUrlWithPath('product_upsert');
     const out = await fetchJSON(upsertUrl, { method:'POST', body: fd2 });
     const log = document.getElementById('respFoto');
     log.textContent += "\n\nAsignado a image_url:\n" + JSON.stringify(out, null, 2);
   }
 });
 
-
-// Movimientos y recibo
+// -------- Movimientos y recibo --------
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const fd = new FormData(e.target);
   // fuerza número
   fd.set('cantidad', Number(fd.get('cantidad') || 0));
 
-  const url = apiBase() + '?path=movement';
+  const url = apiUrlWithPath('movement');
   const out = await fetchJSON(url, { method:'POST', body: fd });
   showResp(document.getElementById('respMovimiento'), out);
 
@@ -109,7 +115,7 @@ document.getElementById('formMovimiento').addEventListener('submit', async (e)=>
 document.getElementById('formRecibo').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const id = new FormData(e.target).get('id_movimiento');
-  const url = apiBase() + '?path=receipt&id=' + encodeURIComponent(id);
+  const url = apiUrlWithPath('receipt', { id });
   const out = await fetchJSON(url);
   showResp(document.getElementById('respRecibo'), out);
   if(out && out.ok && out.url){ window.open(out.url, '_blank'); }
