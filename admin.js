@@ -97,17 +97,19 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
 // -------- Fotos: upload y asignar a producto (no-cors + refresh) --------
 // -------- Fotos: upload por FORM cross-origin + verificación --------
 // -------- Fotos: upload con x-www-form-urlencoded (sin CORS) --------
+// -------- Fotos: upload múltiple (secuencial) y asignación automática --------
 document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const respEl = document.getElementById('respFoto');
   respEl.textContent = '';
 
-  const form = e.target;
-  const id   = form.querySelector('[name="id_del_articulo"]').value.trim();
-  const file = form.querySelector('[name="file"]').files[0];
-  if(!file){ alert('Selecciona un archivo'); return; }
+  const form  = e.target;
+  const id    = form.querySelector('[name="id_del_articulo"]').value.trim();
+  const files = Array.from(form.querySelector('[name="file"]').files || []);
+  if(!id){ alert('Ingresa un id_del_articulo'); return; }
+  if(files.length===0){ alert('Selecciona al menos una imagen'); return; }
 
-  // Lee archivo como base64 (solo la parte después de la coma)
+  // Convierte a base64 (solo la parte después de la coma)
   const toBase64 = (f)=> new Promise((resolve, reject)=>{
     const fr = new FileReader();
     fr.onload  = ()=> resolve(String(fr.result).split(',')[1] || '');
@@ -115,37 +117,47 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
     fr.readAsDataURL(f);
   });
 
+  // Subimos en serie para no saturar Apps Script
+  let i = 0;
+  for(const file of files){
+    i++;
+    appendResp(respEl, { debug:`[${i}/${files.length}] Subiendo ${file.name}` });
+
+    try{
+      const base64 = await toBase64(file);
+
+      // POST application/x-www-form-urlencoded (sin preflight) → evita CORS
+      const uploadUrl = apiUrlWithPath('upload');
+      const body = new URLSearchParams({
+        id_del_articulo: id,          // ← indispensable para que el backend asigne el slot
+        filename: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        base64: base64
+      });
+
+      const res = await fetch(uploadUrl, { method:'POST', body });
+      const txt = await res.text();
+      let up; try { up = JSON.parse(txt); } catch { up = { raw: txt, status: res.status }; }
+
+      appendResp(respEl, { debug:'upload response', up });
+
+      if(up && up.ok && up.assigned){
+        appendResp(respEl, { note:`Asignado en ${up.assigned.field}${up.assigned.replaced?' (reemplazada)':''}` });
+      }
+    }catch(err){
+      appendResp(respEl, { error:String(err), file:file.name });
+    }
+  }
+
+  // (opcional) refrescar datos del producto para ver que ya quedaron las URLs
   try{
-    const base64 = await toBase64(file);
-
-    // 1) POST form-encoded al GAS (no añadimos headers → el navegador pone x-www-form-urlencoded)
-    const uploadUrl = apiUrlWithPath('upload');
-    const body = new URLSearchParams({
-      id_del_articulo: id,
-      filename: file.name,
-      mimeType: file.type || 'application/octet-stream',
-      base64: base64
-    });
-
-    // Log visible
-    respEl.textContent = JSON.stringify({ debug: 'POST upload (form-encoded)', uploadUrl }, null, 2);
-
-    const res = await fetch(uploadUrl, { method:'POST', body }); // simple request → sin preflight
-    const txt = await res.text();
-    let up; try { up = JSON.parse(txt); } catch { up = { raw: txt, status: res.status }; }
-    // Mostramos lo que respondió (si el CORS permite; si no, vendrá vacío y no pasa nada)
-    respEl.textContent += "\n\n" + JSON.stringify({ debug:'upload response', up }, null, 2);
-
-    // 2) Verificar que ya esté el image_url en la hoja
     const checkUrl = apiUrlWithPath('product_fetch', { id });
     const ver = await fetch(checkUrl).then(r=>r.text());
     let obj; try { obj = JSON.parse(ver); } catch { obj = { raw: ver }; }
-    respEl.textContent += "\n\n" + JSON.stringify({ debug:'product_fetch', obj }, null, 2);
-
-  } catch(err){
-    respEl.textContent = JSON.stringify({ error: String(err) }, null, 2);
-  }
+    appendResp(respEl, { debug:'product_fetch', obj });
+  }catch{}
 });
+
 
 
 // -------- Movimientos y recibo --------
