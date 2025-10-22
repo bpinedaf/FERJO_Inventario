@@ -98,18 +98,27 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
 // -------- Fotos: upload por FORM cross-origin + verificación --------
 // -------- Fotos: upload con x-www-form-urlencoded (sin CORS) --------
 // -------- Fotos: upload múltiple (secuencial) y asignación automática --------
+// -------- Fotos: upload (multi) con fallback --------
 document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const respEl = document.getElementById('respFoto');
   respEl.textContent = '';
 
-  const form  = e.target;
-  const id    = form.querySelector('[name="id_del_articulo"]').value.trim();
+  const form = e.target;
+  const id   = form.querySelector('[name="id_del_articulo"]').value.trim();
   const files = Array.from(form.querySelector('[name="file"]').files || []);
-  if(!id){ alert('Ingresa un id_del_articulo'); return; }
-  if(files.length===0){ alert('Selecciona al menos una imagen'); return; }
+  if (!id)   { alert('Ingresa un id_del_articulo'); return; }
+  if (!files.length){ alert('Selecciona al menos un archivo'); return; }
 
-  // Convierte a base64 (solo la parte después de la coma)
+  const uploadUrl = apiUrlWithPath('upload');
+
+  // helper: mostrar/apilar logs
+  const log = (obj) => {
+    respEl.textContent += (respEl.textContent ? '\n\n' : '') +
+      (typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2));
+  };
+
+  // helper: base64
   const toBase64 = (f)=> new Promise((resolve, reject)=>{
     const fr = new FileReader();
     fr.onload  = ()=> resolve(String(fr.result).split(',')[1] || '');
@@ -117,19 +126,46 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
     fr.readAsDataURL(f);
   });
 
-  // Subimos en serie para no saturar Apps Script
-  let i = 0;
-  for(const file of files){
-    i++;
-    appendResp(respEl, { debug:`[${i}/${files.length}] Subiendo ${file.name}` });
+  // 1) PRIMER INTENTO: subir TODOS en 1 sola petición multipart/form-data
+  try {
+    log({ debug: 'Intento #1: multipart único', files: files.map(f=>f.name) });
 
+    const fd = new FormData();
+    fd.append('id_del_articulo', id);
+    files.forEach(f => fd.append('file', f, f.name)); // varios blobs con el mismo nombre de campo
+
+    const res = await fetch(uploadUrl, { method:'POST', body: fd });
+    const txt = await res.text();
+    let up; try { up = JSON.parse(txt); } catch { up = { raw: txt, status: res.status }; }
+    log({ debug:'upload response (multipart)', up });
+
+    // Si el servidor devolvió ok o results, damos por buena la subida
+    if ((up && up.ok) || (up && Array.isArray(up.results))) {
+      // 3) Verificar campos en la hoja
+      const checkUrl = apiUrlWithPath('product_fetch', { id });
+      const ver = await fetch(checkUrl).then(r=>r.text());
+      let obj; try { obj = JSON.parse(ver); } catch { obj = { raw: ver }; }
+      log({ debug:'product_fetch', obj });
+      return; // todo bien
+    }
+
+    // Si no marcó ok, caemos a fallback
+    log({ warn: 'Multipart no marcó ok, se intentará fallback por archivo…' });
+  } catch (err) {
+    log({ warn: 'Falló multipart, se intentará fallback por archivo…', error: String(err) });
+  }
+
+  // 2) FALLBACK: subir UNO POR UNO con x-www-form-urlencoded (base64)
+  log({ debug: 'Intento #2: fallback urlencoded + base64' });
+
+  for (let i=0; i<files.length; i++){
+    const file = files[i];
     try{
-      const base64 = await toBase64(file);
+      log({ debug: `[${i+1}/${files.length}] Subiendo ${file.name}` });
 
-      // POST application/x-www-form-urlencoded (sin preflight) → evita CORS
-      const uploadUrl = apiUrlWithPath('upload');
+      const base64 = await toBase64(file);
       const body = new URLSearchParams({
-        id_del_articulo: id,          // ← indispensable para que el backend asigne el slot
+        id_del_articulo: id,
         filename: file.name,
         mimeType: file.type || 'application/octet-stream',
         base64: base64
@@ -138,25 +174,26 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
       const res = await fetch(uploadUrl, { method:'POST', body });
       const txt = await res.text();
       let up; try { up = JSON.parse(txt); } catch { up = { raw: txt, status: res.status }; }
+      log({ debug: 'upload response (fallback)', file: file.name, up });
 
-      appendResp(respEl, { debug:'upload response', up });
-
-      if(up && up.ok && up.assigned){
-        appendResp(respEl, { note:`Asignado en ${up.assigned.field}${up.assigned.replaced?' (reemplazada)':''}` });
-      }
-    }catch(err){
-      appendResp(respEl, { error:String(err), file:file.name });
+      // pequeña pausa (evita throttle)
+      await new Promise(r => setTimeout(r, 300));
+    } catch (err) {
+      log({ error: 'TypeError: Failed to fetch', file: file.name, detail: String(err) });
     }
   }
 
-  // (opcional) refrescar datos del producto para ver que ya quedaron las URLs
+  // 3) Verificar campos en la hoja
   try{
     const checkUrl = apiUrlWithPath('product_fetch', { id });
     const ver = await fetch(checkUrl).then(r=>r.text());
     let obj; try { obj = JSON.parse(ver); } catch { obj = { raw: ver }; }
-    appendResp(respEl, { debug:'product_fetch', obj });
-  }catch{}
+    log({ debug:'product_fetch', obj });
+  }catch(err){
+    log({ error: 'No se pudo verificar product_fetch', detail: String(err) });
+  }
 });
+
 
 
 
