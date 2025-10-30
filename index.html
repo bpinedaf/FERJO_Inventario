@@ -5,10 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FERJO - Admin Inventarios</title>
   <link rel="stylesheet" href="styles.css">
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <header>
     <h1>FERJO — Admin Inventarios</h1>
+
+    <!-- Login / Perfil -->
+    <div id="authBox">
+      <!-- Estado: sin sesión -->
+      <div id="signedOut">
+        <div id="g_id_onload"
+             data-client_id="TU_CLIENT_ID.apps.googleusercontent.com"
+             data-context="signin"
+             data-callback="onCredentialResponse"
+             data-auto_prompt="false">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-size="large"></div>
+      </div>
+
+      <!-- Estado: con sesión -->
+      <div id="signedIn" style="display:none">
+        <span id="whoami"></span>
+        <button id="btnLogout">Salir</button>
+      </div>
+    </div>
+
+    <!-- Config API -->
     <div class="api-box">
       <label>API URL</label>
       <input id="apiUrl" placeholder="https://script.google.com/macros/s/XXX/exec">
@@ -17,13 +42,15 @@
     </div>
   </header>
 
+  <!-- Tabs visibles según rol -->
   <nav class="tabs">
-    <button class="tab active" data-tab="productos">Productos</button>
-    <button class="tab" data-tab="fotos">Fotos</button>
-    <button class="tab" data-tab="movimientos">Movimientos</button>
+    <button class="tab active" data-tab="productos"  data-roles="admin,productos">Productos</button>
+    <button class="tab"          data-tab="fotos"      data-roles="admin,fotos">Fotos</button>
+    <button class="tab"          data-tab="movimientos" data-roles="admin,inventario">Movimientos</button>
   </nav>
 
-  <section id="productos" class="panel active">
+  <!-- Panel: Productos -->
+  <section id="productos" class="panel active" data-roles="admin,productos">
     <h2>Crear / Actualizar producto</h2>
     <form id="formProducto">
       <div class="grid">
@@ -45,15 +72,19 @@
         <label>Descripción <textarea name="descripcion" rows="3"></textarea></label>
       </div>
       <div class="actions">
-        <button type="submit">Guardar producto</button>
+        <button type="submit" id="btnGuardarProducto">Guardar producto</button>
         <button type="button" id="cargarProducto">Cargar por ID</button>
       </div>
-      <p class="help">Este formulario usa el endpoint <code>POST /exec?path=product_upsert</code> y <code>GET /exec?path=product_fetch</code>.</p>
+      <p class="help">
+        Este formulario usa <code>POST /exec?path=product_upsert</code> y
+        <code>GET /exec?path=product_fetch</code>.
+      </p>
       <pre id="respProducto" class="resp"></pre>
     </form>
   </section>
 
-  <section id="fotos" class="panel">
+  <!-- Panel: Fotos -->
+  <section id="fotos" class="panel" data-roles="admin,fotos">
     <h2>Cargar fotografía</h2>
     <form id="formFoto" enctype="multipart/form-data">
       <div class="grid">
@@ -63,12 +94,17 @@
       <div class="actions">
         <button type="submit">Subir foto</button>
       </div>
-      <p class="help">Usa <code>POST /exec?path=upload</code>. Al subir, se sugiere asignar la URL al campo <code>image_url</code> del producto.</p>
+      <p class="help">
+        Usa <code>POST /exec?path=upload</code>. Al subir, se sugiere asignar la URL al campo
+        <code>image_url</code> del producto (se autollenan <code>image_url</code>, <code>image_url_2</code> o
+        <code>image_url_3</code> si están vacíos).
+      </p>
       <pre id="respFoto" class="resp"></pre>
     </form>
   </section>
 
-  <section id="movimientos" class="panel">
+  <!-- Panel: Movimientos -->
+  <section id="movimientos" class="panel" data-roles="admin,inventario">
     <h2>Registrar movimiento</h2>
     <form id="formMovimiento">
       <div class="grid">
@@ -104,10 +140,13 @@
   </section>
 
   <footer>
-    <p>FERJO Admin — v1.0 • Static (GitHub/Netlify). </p>
+    <p>FERJO Admin — v1.0 • Static (GitHub/Netlify).</p>
   </footer>
 
+  <!-- Tu configuración y lógica existente -->
   <script src="config.js"></script>
   <script src="admin.js"></script>
+  <!-- Autenticación y helpers con token/roles -->
+  <script src="auth.js"></script>
 </body>
 </html>
