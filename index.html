@@ -17,6 +17,7 @@
     <div id="authBox">
       <!-- Estado: sin sesión -->
       <div id="signedOut">
+        <p style="margin:0 0 8px 0;">Inicia sesión para continuar</p>
         <div id="g_id_onload"
              data-client_id="852782550488-5k5d6gj1fn7q7sbqdn7l532r7pgo5r2t.apps.googleusercontent.com"
              data-context="signin"
@@ -42,111 +43,115 @@
     </div>
   </header>
 
-  <!-- Tabs visibles según rol -->
-  <nav class="tabs">
-    <button class="tab active" data-tab="productos"  data-roles="admin,productos">Productos</button>
-    <button class="tab"          data-tab="fotos"      data-roles="admin,fotos">Fotos</button>
-    <button class="tab"          data-tab="movimientos" data-roles="admin,inventario">Movimientos</button>
-  </nav>
+  <!-- CONTENIDO PROTEGIDO: solo visible si hay sesión válida -->
+  <main id="appMain" style="display:none">
 
-  <!-- Panel: Productos -->
-  <section id="productos" class="panel active" data-roles="admin,productos">
-    <h2>Crear / Actualizar producto</h2>
-    <form id="formProducto">
-      <div class="grid">
-        <label>Id del artículo* <input name="id_del_articulo" required></label>
-        <label>Nombre* <input name="nombre" required></label>
-        <label>Categoría <input name="categoria"></label>
-        <label>Precio de venta* <input name="precio_de_venta" type="number" step="0.01" required></label>
-        <label>Cantidad <input name="cantidad" type="number" step="1"></label>
-        <label>Moneda <input name="moneda" value="GTQ"></label>
-        <label>Estado
-          <select name="status">
-            <option value="">(auto)</option>
-            <option value="activo">activo</option>
-            <option value="sin_stock">sin_stock</option>
-            <option value="inactivo">inactivo</option>
-          </select>
-        </label>
-        <label>Imagen (URL) <input name="image_url" placeholder="https://..."></label>
-        <label>Descripción <textarea name="descripcion" rows="3"></textarea></label>
-      </div>
-      <div class="actions">
-        <button type="submit" id="btnGuardarProducto">Guardar producto</button>
-        <button type="button" id="cargarProducto">Cargar por ID</button>
-      </div>
-      <p class="help">
-        Este formulario usa <code>POST /exec?path=product_upsert</code> y
-        <code>GET /exec?path=product_fetch</code>.
-      </p>
-      <pre id="respProducto" class="resp"></pre>
-    </form>
-  </section>
+    <!-- Tabs visibles según rol -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="productos"  data-roles="admin,productos">Productos</button>
+      <button class="tab"          data-tab="fotos"      data-roles="admin,fotos">Fotos</button>
+      <button class="tab"          data-tab="movimientos" data-roles="admin,inventario">Movimientos</button>
+    </nav>
 
-  <!-- Panel: Fotos -->
-  <section id="fotos" class="panel" data-roles="admin,fotos">
-    <h2>Cargar fotografía</h2>
-    <form id="formFoto" enctype="multipart/form-data">
-      <div class="grid">
-        <label>Id del artículo* <input name="id_del_articulo" required></label>
-        <label>Archivo* <input name="file" type="file" accept="image/*" multiple required></label>
-      </div>
-      <div class="actions">
-        <button type="submit">Subir foto</button>
-      </div>
-      <p class="help">
-        Usa <code>POST /exec?path=upload</code>. Al subir, se sugiere asignar la URL al campo
-        <code>image_url</code> del producto (se autollenan <code>image_url</code>, <code>image_url_2</code> o
-        <code>image_url_3</code> si están vacíos).
-      </p>
-      <pre id="respFoto" class="resp"></pre>
-    </form>
-  </section>
+    <!-- Panel: Productos -->
+    <section id="productos" class="panel active" data-roles="admin,productos">
+      <h2>Crear / Actualizar producto</h2>
+      <form id="formProducto">
+        <div class="grid">
+          <label>Id del artículo* <input name="id_del_articulo" required></label>
+          <label>Nombre* <input name="nombre" required></label>
+          <label>Categoría <input name="categoria"></label>
+          <label>Precio de venta* <input name="precio_de_venta" type="number" step="0.01" required></label>
+          <label>Cantidad <input name="cantidad" type="number" step="1"></label>
+          <label>Moneda <input name="moneda" value="GTQ"></label>
+          <label>Estado
+            <select name="status">
+              <option value="">(auto)</option>
+              <option value="activo">activo</option>
+              <option value="sin_stock">sin_stock</option>
+              <option value="inactivo">inactivo</option>
+            </select>
+          </label>
+          <label>Imagen (URL) <input name="image_url" placeholder="https://..."></label>
+          <label>Descripción <textarea name="descripcion" rows="3"></textarea></label>
+        </div>
+        <div class="actions">
+          <button type="submit" id="btnGuardarProducto">Guardar producto</button>
+          <button type="button" id="cargarProducto">Cargar por ID</button>
+        </div>
+        <p class="help">
+          Este formulario usa <code>POST /exec?path=product_upsert</code> y
+          <code>GET /exec?path=product_fetch</code>.
+        </p>
+        <pre id="respProducto" class="resp"></pre>
+      </form>
+    </section>
 
-  <!-- Panel: Movimientos -->
-  <section id="movimientos" class="panel" data-roles="admin,inventario">
-    <h2>Registrar movimiento</h2>
-    <form id="formMovimiento">
-      <div class="grid">
-        <label>Tipo*
-          <select name="tipo" required>
-            <option value="ingreso">ingreso</option>
-            <option value="salida">salida</option>
-            <option value="ajuste">ajuste</option>
-          </select>
-        </label>
-        <label>Id del artículo* <input name="id_del_articulo" required></label>
-        <label>Cantidad* <input name="cantidad" type="number" step="1" required></label>
-        <label>Motivo <input name="motivo"></label>
-        <label>Usuario <input name="usuario"></label>
-        <label>Observaciones <input name="observaciones"></label>
-      </div>
-      <div class="actions">
-        <button type="submit">Registrar</button>
-      </div>
-      <pre id="respMovimiento" class="resp"></pre>
-    </form>
+    <!-- Panel: Fotos -->
+    <section id="fotos" class="panel" data-roles="admin,fotos">
+      <h2>Cargar fotografía</h2>
+      <form id="formFoto" enctype="multipart/form-data">
+        <div class="grid">
+          <label>Id del artículo* <input name="id_del_articulo" required></label>
+          <label>Archivo* <input name="file" type="file" accept="image/*" multiple required></label>
+        </div>
+        <div class="actions">
+          <button type="submit">Subir foto</button>
+        </div>
+        <p class="help">
+          Usa <code>POST /exec?path=upload</code>. Al subir, se sugiere asignar la URL al campo
+          <code>image_url</code> del producto (se autollenan <code>image_url</code>, <code>image_url_2</code> o
+          <code>image_url_3</code> si están vacíos).
+        </p>
+        <pre id="respFoto" class="resp"></pre>
+      </form>
+    </section>
 
-    <h3>Generar comprobante (para salidas)</h3>
-    <form id="formRecibo">
-      <div class="grid">
-        <label>ID de movimiento* <input name="id_movimiento" placeholder="MOV-..." required></label>
-      </div>
-      <div class="actions">
-        <button type="submit">Generar PDF</button>
-      </div>
-      <pre id="respRecibo" class="resp"></pre>
-    </form>
-  </section>
+    <!-- Panel: Movimientos -->
+    <section id="movimientos" class="panel" data-roles="admin,inventario">
+      <h2>Registrar movimiento</h2>
+      <form id="formMovimiento">
+        <div class="grid">
+          <label>Tipo*
+            <select name="tipo" required>
+              <option value="ingreso">ingreso</option>
+              <option value="salida">salida</option>
+              <option value="ajuste">ajuste</option>
+            </select>
+          </label>
+          <label>Id del artículo* <input name="id_del_articulo" required></label>
+          <label>Cantidad* <input name="cantidad" type="number" step="1" required></label>
+          <label>Motivo <input name="motivo"></label>
+          <label>Usuario <input name="usuario"></label>
+          <label>Observaciones <input name="observaciones"></label>
+        </div>
+        <div class="actions">
+          <button type="submit">Registrar</button>
+        </div>
+        <pre id="respMovimiento" class="resp"></pre>
+      </form>
+
+      <h3>Generar comprobante (para salidas)</h3>
+      <form id="formRecibo">
+        <div class="grid">
+          <label>ID de movimiento* <input name="id_movimiento" placeholder="MOV-..." required></label>
+        </div>
+        <div class="actions">
+          <button type="submit">Generar PDF</button>
+        </div>
+        <pre id="respRecibo" class="resp"></pre>
+      </form>
+    </section>
+
+  </main>
 
   <footer>
     <p>FERJO Admin — v1.0 • Static (GitHub/Netlify).</p>
   </footer>
 
-  <!-- Tu configuración y lógica existente -->
+  <!-- Config primero, luego auth (controla visibilidad), luego lógica de UI -->
   <script src="config.js"></script>
-  <script src="auth.js"></script> 
+  <script src="auth.js"></script>
   <script src="admin.js"></script>
-   
 </body>
 </html>
