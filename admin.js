@@ -122,7 +122,7 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
 });
 
 // ===================================================
-//            FOTOS: upload + autoasignación
+//  FOTOS: upload + autoasignación (UI silenciosa con debug opcional)
 // ===================================================
 document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -132,16 +132,14 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
   const form  = e.target;
   const id    = form.querySelector('[name="id_del_articulo"]').value.trim();
   const files = Array.from(form.querySelector('[name="file"]').files || []);
-  if (!id)            { alert('Ingresa un id_del_articulo'); return; }
-  if (!files.length)  { alert('Selecciona al menos un archivo'); return; }
+  if (!id)           { alert('Ingresa un id_del_articulo'); return; }
+  if (!files.length) { alert('Selecciona al menos un archivo'); return; }
 
-  // URL con token en query (multipart no lo lee del body)
+  // Modo silencioso (muestra detalle solo si FERJO_DEBUG=1 en localStorage)
+  const DEBUG_UI = (localStorage.getItem('FERJO_DEBUG')==='1');
+  const dbg = []; const log = (obj)=> dbg.push(obj);
+
   const uploadUrl = apiUrlAuth('upload');
-
-  const log = (obj) => {
-    respEl.textContent += (respEl.textContent ? '\n\n' : '') +
-      (typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2));
-  };
 
   const toBase64 = (f)=> new Promise((resolve, reject)=>{
     const fr = new FileReader();
@@ -150,7 +148,10 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
     fr.readAsDataURL(f);
   });
 
-  // 1) Intento: multipart único
+  let successCount = 0;
+  let assignedFields = [];
+
+  // 1) Intento: multipart único (token en query)
   try{
     log({ debug: 'Intento #1: multipart único', files: files.map(f=>f.name) });
 
@@ -164,53 +165,79 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
     log({ debug:'upload response (multipart)', up });
 
     if ((up && up.ok) || (up && Array.isArray(up.results))) {
-      const obj = await getWithToken('product_fetch', { id });
-      log({ debug:'product_fetch', obj });
-      return;
+      if (Array.isArray(up.results)){
+        successCount = up.results.filter(r => r && r.ok).length;
+        assignedFields = up.results
+          .map(r => (r.assigned && r.assigned.field) ? r.assigned.field : null)
+          .filter(Boolean);
+      } else {
+        successCount = 1;
+        if (up.assigned && up.assigned.field) assignedFields = [up.assigned.field];
+      }
+    } else {
+      log({ warn: 'Multipart no marcó ok, se intentará fallback por archivo…' });
     }
-
-    log({ warn: 'Multipart no marcó ok, se intentará fallback por archivo…' });
   }catch(err){
     log({ warn: 'Falló multipart, se intentará fallback por archivo…', error: String(err) });
   }
 
-  // 2) Fallback: uno por uno urlencoded + token en body
-  log({ debug: 'Intento #2: fallback urlencoded + base64' });
+  // 2) Fallback: urlencoded + token en body
+  if (successCount === 0){
+    log({ debug: 'Intento #2: fallback urlencoded + base64' });
+    for (let i=0; i<files.length; i++){
+      const file = files[i];
+      try{
+        log({ debug: `[${i+1}/${files.length}] Subiendo ${file.name}` });
 
-  for (let i=0; i<files.length; i++){
-    const file = files[i];
-    try{
-      log({ debug: `[${i+1}/${files.length}] Subiendo ${file.name}` });
+        const base64 = await toBase64(file);
+        const body = new URLSearchParams({
+          id_del_articulo: id,
+          filename: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          base64: base64,
+          token: getToken()
+        });
 
-      const base64 = await toBase64(file);
-      const body = new URLSearchParams({
-        id_del_articulo: id,
-        filename: file.name,
-        mimeType: file.type || 'application/octet-stream',
-        base64: base64,
-        token: getToken() // <-- token en body urlencoded
-      });
+        const urlForFallback = apiBase() + (apiBase().includes('?') ? '&' : '?') + 'path=upload';
+        const res = await fetch(urlForFallback, { method:'POST', body });
+        const txt = await res.text();
+        let up; try { up = JSON.parse(txt); } catch { up = { raw: txt, status: res.status }; }
+        log({ debug: 'upload response (fallback)', file: file.name, up });
 
-      const urlForFallback = apiBase() + (apiBase().includes('?') ? '&' : '?') + 'path=upload';
-      const res = await fetch(urlForFallback, { method:'POST', body });
-      const txt = await res.text();
-      let up; try { up = JSON.parse(txt); } catch { up = { raw: txt, status: res.status }; }
-      log({ debug: 'upload response (fallback)', file: file.name, up });
+        if (up && up.ok){
+          successCount += 1;
+          if (up.assigned && up.assigned.field) assignedFields.push(up.assigned.field);
+        }
 
-      await new Promise(r => setTimeout(r, 300));
-    }catch(err){
-      log({ error: 'TypeError: Failed to fetch', file: file.name, detail: String(err) });
+        await new Promise(r => setTimeout(r, 250));
+      }catch(err){
+        log({ error: 'TypeError: Failed to fetch', file: file.name, detail: String(err) });
+      }
     }
   }
 
   // 3) Verificación
+  let verify;
   try{
-    const obj = await getWithToken('product_fetch', { id });
-    log({ debug:'product_fetch', obj });
+    verify = await getWithToken('product_fetch', { id });
+    log({ debug:'product_fetch', verify });
   }catch(err){
     log({ error: 'No se pudo verificar product_fetch', detail: String(err) });
   }
+
+  // 4) Resumen visible
+  const ok = successCount > 0 && verify && verify.ok;
+  const resumen = ok
+    ? `✅ Carga exitosa (${successCount} archivo(s)). Campos: ${assignedFields.join(', ')||'—'}`
+    : '❌ No se pudo cargar, intenta de nuevo.';
+  respEl.textContent = resumen;
+
+  // 5) Si quieres ver el detalle, activa debug local (no se guarda en hoja)
+  if (DEBUG_UI){
+    respEl.textContent += '\n\n[DEBUG habilitado]\n' + JSON.stringify({dbg}, null, 2);
+  }
 });
+
 
 // ===================================================
 //              MOVIMIENTOS + RECIBO PDF
