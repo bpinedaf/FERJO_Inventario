@@ -22,3 +22,14 @@ input,select,textarea{padding:10px;border-radius:10px;border:1px solid #ccc;back
 .help{color:#555;font-size:.9rem}
 
 footer{padding:20px;text-align:center;color:#666}
+/* Loader básico */
+.spinner {
+  display:inline-block; width:16px; height:16px;
+  border:2px solid #bbb; border-top-color: transparent;
+  border-radius:50%; animation: spin 0.9s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Botón deshabilitado */
+button[disabled] { opacity: .6; cursor: not-allowed; }
