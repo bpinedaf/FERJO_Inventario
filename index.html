@@ -110,26 +110,47 @@
     <!-- Panel: Movimientos -->
     <section id="movimientos" class="panel" data-roles="admin,inventario">
       <h2>Registrar movimiento</h2>
-      <form id="formMovimiento">
-        <div class="grid">
-          <label>Tipo*
-            <select name="tipo" required>
-              <option value="ingreso">ingreso</option>
-              <option value="salida">salida</option>
-              <option value="ajuste">ajuste</option>
-            </select>
-          </label>
-          <label>Id del artículo* <input name="id_del_articulo" required></label>
-          <label>Cantidad* <input name="cantidad" type="number" step="1" required></label>
-          <label>Motivo <input name="motivo"></label>
-          <label>Usuario <input name="usuario"></label>
-          <label>Observaciones <input name="observaciones"></label>
-        </div>
-        <div class="actions">
-          <button type="submit">Registrar</button>
-        </div>
-        <pre id="respMovimiento" class="resp"></pre>
-      </form>
+          <form id="formMovimiento">
+      <div class="grid">
+        <label>Operación*
+          <select name="operacion" required>
+            <option value="venta">Venta (salida de inventario)</option>
+            <option value="compra">Compra (ingreso a inventario)</option>
+            <option value="ajuste">Ajuste de stock</option>
+          </select>
+        </label>
+
+        <label>Id del artículo* <input name="id_del_articulo" required></label>
+
+        <label>Cantidad* <input name="cantidad" type="number" step="1" required></label>
+
+        <label>Precio unitario (venta)
+          <input name="precio_unitario" type="number" step="0.01" placeholder="Q 0.00">
+        </label>
+
+        <label>Costo unitario (compra)
+          <input name="costo_unitario" type="number" step="0.01" placeholder="Q 0.00">
+        </label>
+
+        <label>Motivo / referencia
+          <input name="motivo" placeholder="Factura, cliente, proveedor, etc.">
+        </label>
+
+        <label>Usuario
+          <input name="usuario" placeholder="Opcional, se puede dejar el correo">
+        </label>
+
+        <label>Observaciones
+          <input name="observaciones" placeholder="Notas adicionales">
+        </label>
+      </div>
+
+      <div class="actions">
+        <button type="submit">Registrar</button>
+      </div>
+      <pre id="respMovimiento" class="resp"></pre>
+    </form>
+
 
       <h3>Generar comprobante (para salidas)</h3>
       <form id="formRecibo">
