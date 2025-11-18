@@ -254,23 +254,43 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
 // ===================================================
 //              MOVIMIENTOS + RECIBO PDF
 // ===================================================
+// -------- Movimientos y recibo --------
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const respEl = document.getElementById('respMovimiento');
   respEl.textContent = '';
 
-  const payload = Object.fromEntries(new FormData(e.target).entries());
-  payload.cantidad = Number(payload.cantidad || 0);
+  const fd = new FormData(e.target);
 
-  appendResp(respEl, { debug:'POST movement' });
+  // Mapear operación de negocio -> tipo de movimiento para el backend
+  const operacion = fd.get('operacion') || 'venta';
+  let tipo = 'salida'; // por defecto, venta = salida de inventario
+  if (operacion === 'compra') tipo = 'ingreso';
+  else if (operacion === 'ajuste') tipo = 'ajuste';
+  fd.set('tipo', tipo);
 
-  const out = await postWithToken('movement', payload);
+  // Normalizar numéricos
+  fd.set('cantidad', Number(fd.get('cantidad') || 0));
+  if (fd.get('precio_unitario')) {
+    fd.set('precio_unitario', Number(fd.get('precio_unitario')));
+  }
+  if (fd.get('costo_unitario')) {
+    fd.set('costo_unitario', Number(fd.get('costo_unitario')));
+  }
+
+  const url = apiUrlWithPath('movement');
+  appendResp(respEl, { debug:'POST movement', url });
+
+  const out = await fetchJSON(url, { method:'POST', body: fd });
   showResp(respEl, out);
 
-  if(out && out.ok && payload.tipo==='salida' && out.id_movimiento){
-    document.querySelector('#formRecibo [name="id_movimiento"]').value = out.id_movimiento;
+  // Si fue una venta (salida) y se creó movimiento, proponemos el ID para el recibo
+  if(out && out.ok && tipo === 'salida' && out.id_movimiento){
+    const recForm = document.querySelector('#formRecibo [name="id_movimiento"]');
+    if (recForm) recForm.value = out.id_movimiento;
   }
 });
+
 
 document.getElementById('formRecibo').addEventListener('submit', async (e)=>{
   e.preventDefault();
