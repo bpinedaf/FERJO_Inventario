@@ -255,33 +255,49 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
 //              MOVIMIENTOS + RECIBO PDF
 // ===================================================
 // -------- Movimientos y recibo --------
+// ===================================================
+//              MOVIMIENTOS + RECIBO PDF
+// ===================================================
+// -------- Movimientos (usa postWithToken) --------
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const respEl = document.getElementById('respMovimiento');
   respEl.textContent = '';
 
-  const fd = new FormData(e.target);
+  // Tomar los valores del form como objeto plano
+  const fd   = new FormData(e.target);
+  const raw  = Object.fromEntries(fd.entries());
 
   // Mapear operación de negocio -> tipo de movimiento para el backend
-  const operacion = fd.get('operacion') || 'venta';
-  let tipo = 'salida'; // por defecto, venta = salida de inventario
+  const operacion = raw.operacion || 'venta';
+  let tipo = 'salida';               // por defecto, venta = salida de inventario
   if (operacion === 'compra') tipo = 'ingreso';
   else if (operacion === 'ajuste') tipo = 'ajuste';
-  fd.set('tipo', tipo);
+  raw.tipo = tipo;
 
   // Normalizar numéricos
-  fd.set('cantidad', Number(fd.get('cantidad') || 0));
-  if (fd.get('precio_unitario')) {
-    fd.set('precio_unitario', Number(fd.get('precio_unitario')));
+  raw.cantidad = Number(raw.cantidad || 0) || 0;
+  if (raw.precio_unitario) {
+    raw.precio_unitario = Number(raw.precio_unitario) || 0;
   }
-  if (fd.get('costo_unitario')) {
-    fd.set('costo_unitario', Number(fd.get('costo_unitario')));
+  if (raw.costo_unitario) {
+    raw.costo_unitario = Number(raw.costo_unitario) || 0;
   }
 
-  const url = apiUrlWithPath('movement');
-  appendResp(respEl, { debug:'POST movement', url });
+  // Validaciones mínimas
+  if (!raw.id_del_articulo) {
+    alert('Ingresa un id_del_articulo');
+    return;
+  }
+  if (!raw.cantidad) {
+    alert('La cantidad debe ser distinta de 0');
+    return;
+  }
 
-  const out = await fetchJSON(url, { method:'POST', body: fd });
+  appendResp(respEl, { debug:'POST movement', payload: raw });
+
+  // Enviar al backend usando el helper con token
+  const out = await postWithToken('movement', raw);
   showResp(respEl, out);
 
   // Si fue una venta (salida) y se creó movimiento, proponemos el ID para el recibo
@@ -291,7 +307,7 @@ document.getElementById('formMovimiento').addEventListener('submit', async (e)=>
   }
 });
 
-
+// -------- Recibo PDF (sin cambios por ahora) --------
 document.getElementById('formRecibo').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const respEl = document.getElementById('respRecibo');
@@ -304,3 +320,4 @@ document.getElementById('formRecibo').addEventListener('submit', async (e)=>{
   showResp(respEl, out);
   if(out && out.ok && out.url){ window.open(out.url, '_blank'); }
 });
+
