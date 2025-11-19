@@ -339,6 +339,10 @@ const ventaItemsBody      = document.getElementById('ventaItemsBody');
 
 const btnVentaVerComprobante = document.getElementById('btnVentaVerComprobante');
 let   ventaDocUrlUltima       = '';
+// Al inicio, el botón debe estar deshabilitado hasta que haya una venta
+if (btnVentaVerComprobante) {
+  btnVentaVerComprobante.disabled = true;
+}
 
 const inputVentaCodigo    = document.getElementById('ventaCodigo');
 const inputVentaNombre    = document.getElementById('ventaNombre');
@@ -409,13 +413,10 @@ function resetVenta(){
   inputPagoInicialForma.value = '';
   selectPlazoDias.value       = '0';
   formVenta.querySelector('[name="notas"]').value = '';
-
-  // limpiar botón de comprobante
-  ventaDocUrlUltima = '';
-  if (btnVentaVerComprobante) {
-    btnVentaVerComprobante.disabled = true;
-  }
+  // OJO: aquí *ya no* tocamos ventaDocUrlUltima ni el estado del botón,
+  // porque queremos seguir pudiendo ver el último comprobante generado.
 }
+
 
 // --- Aquí va el bloque d) ---
 if (btnVentaVerComprobante) {
