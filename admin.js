@@ -337,6 +337,9 @@ const respCliente         = document.getElementById('respCliente');
 const ventaRespProducto   = document.getElementById('ventaRespProducto');
 const ventaItemsBody      = document.getElementById('ventaItemsBody');
 
+const btnVentaVerComprobante = document.getElementById('btnVentaVerComprobante');
+let   ventaDocUrlUltima       = '';
+
 const inputVentaCodigo    = document.getElementById('ventaCodigo');
 const inputVentaNombre    = document.getElementById('ventaNombre');
 const inputVentaPrecioSug = document.getElementById('ventaPrecioSugerido');
@@ -406,8 +409,21 @@ function resetVenta(){
   inputPagoInicialForma.value = '';
   selectPlazoDias.value       = '0';
   formVenta.querySelector('[name="notas"]').value = '';
+
+  // limpiar botón de comprobante
+  ventaDocUrlUltima = '';
+  if (btnVentaVerComprobante) {
+    btnVentaVerComprobante.disabled = true;
 }
 
+  // --- Aquí va el bloque d) ---
+if (btnVentaVerComprobante) {
+  btnVentaVerComprobante.addEventListener('click', ()=>{
+    if (ventaDocUrlUltima) {
+      window.open(ventaDocUrlUltima, '_blank');
+    }
+  });
+}
 // --- Búsqueda de producto por código ---
 async function buscarProductoVenta(){
   const id = (inputVentaCodigo.value || '').trim();
@@ -586,18 +602,30 @@ formVenta.addEventListener('submit', async (e)=>{
     items: payload.items.length
   }});
 
-    const out = await postJSONWithToken('sale_register', payload);
-  showResp(respVenta, out);
+const out = await postJSONWithToken('sale_register', payload);
+showResp(respVenta, out);
 
-  if (out && out.ok){
-    alert(`Venta registrada correctamente.\nID: ${out.id_venta}\nTotal: Q ${Number(out.total_neto || 0).toFixed(2)}`);
+if (out && out.ok){
+  // Guardar doc_url de la venta recién creada
+  ventaDocUrlUltima = out.doc_url || '';
 
-    // Si se generó comprobante, lo abrimos en una nueva pestaña
-    if (out.doc_url){
-      window.open(out.doc_url, '_blank');
-    }
-
-    resetVenta();
+  if (btnVentaVerComprobante) {
+    btnVentaVerComprobante.disabled = !ventaDocUrlUltima;
   }
+
+  alert(
+    `Venta registrada correctamente.\n` +
+    `ID: ${out.id_venta}\n` +
+    `Total: Q ${Number(out.total_neto || 0).toFixed(2)}`
+  );
+
+  // Opcional: abrir el comprobante inmediatamente si existe
+  if (ventaDocUrlUltima) {
+    window.open(ventaDocUrlUltima, '_blank');
+  }
+
+  resetVenta();
+}
+
 });
 
