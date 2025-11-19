@@ -306,6 +306,86 @@ document.getElementById('formMovimiento').addEventListener('submit', async (e)=>
     if (recForm) recForm.value = out.id_movimiento;
   }
 });
+// ===================================================
+//  BÚSQUEDA RÁPIDA DE PRODUCTO EN "MOVIMIENTOS"
+//  - Escribir código y presionar Enter
+//  - Autollenar nombre y precio de venta
+// ===================================================
+(function setupMovimientoLookup(){
+  const formMov = document.getElementById('formMovimiento');
+  if (!formMov) return;
+
+  const inputId     = formMov.querySelector('[name="id_del_articulo"]');
+  const inputCant   = formMov.querySelector('[name="cantidad"]');
+  const inputPrecio = formMov.querySelector('[name="precio_unitario"]');
+  const infoBox     = document.getElementById('movProductoInfo');
+
+  if (!inputId) return;
+
+  async function lookupProductoMovimiento(){
+    const id = (inputId.value || '').trim();
+    if (!id){
+      if (infoBox) infoBox.textContent = '';
+      return;
+    }
+
+    // Limpia mensaje previo
+    if (infoBox) {
+      infoBox.textContent = 'Buscando producto...';
+    }
+
+    // Llamar al mismo endpoint que usamos en Productos
+    const data = await getWithToken('product_fetch', { id });
+
+    if (!data || !data.ok || !data.product){
+      if (infoBox) {
+        infoBox.textContent = '⚠ Producto no encontrado para código: ' + id;
+      }
+      // No tocar precio si no se encontró
+      return;
+    }
+
+    const p = data.product;
+
+    // Autollenar precio de venta sugerido (editable)
+    if (inputPrecio) {
+      const precio = Number(p.precio_de_venta || 0) || 0;
+      inputPrecio.value = precio ? precio : '';
+    }
+
+    // Si cantidad está vacía, asumir 1
+    if (inputCant && (!inputCant.value || Number(inputCant.value) === 0)) {
+      inputCant.value = 1;
+    }
+
+    // Mostrar info amigable en la banda de ayuda
+    if (infoBox) {
+      const precioTxt = p.precio_de_venta ? `Q${Number(p.precio_de_venta).toFixed(2)}` : '—';
+      const stockTxt  = (p.cantidad !== undefined && p.cantidad !== null)
+        ? String(p.cantidad)
+        : 'N/D';
+
+      infoBox.textContent =
+        `Producto: ${p.id_del_articulo || id} · ${p.nombre || '(sin nombre)'} ` +
+        `— Precio sugerido: ${precioTxt} — Stock: ${stockTxt}`;
+    }
+  }
+
+  // Cuando se presiona Enter en el código, buscar producto
+  inputId.addEventListener('keydown', (ev)=>{
+    if (ev.key === 'Enter'){
+      ev.preventDefault();
+      lookupProductoMovimiento();
+    }
+  });
+
+  // Opcional: al salir del campo también podemos intentar la búsqueda
+  inputId.addEventListener('blur', ()=>{
+    if ((inputId.value || '').trim()){
+      lookupProductoMovimiento();
+    }
+  });
+})();
 
 // -------- Recibo PDF (sin cambios por ahora) --------
 document.getElementById('formRecibo').addEventListener('submit', async (e)=>{
