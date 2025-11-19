@@ -48,8 +48,9 @@
 
     <!-- Tabs visibles según rol -->
     <nav class="tabs">
-      <button class="tab active" data-tab="productos"  data-roles="admin,productos">Productos</button>
+      <button class="tab active" data-tab="productos"   data-roles="admin,productos">Productos</button>
       <button class="tab"          data-tab="fotos"      data-roles="admin,fotos">Fotos</button>
+      <button class="tab"          data-tab="ventas"     data-roles="admin,ventas,inventario">Ventas</button>
       <button class="tab"          data-tab="movimientos" data-roles="admin,inventario">Movimientos</button>
     </nav>
 
@@ -107,55 +108,176 @@
       </form>
     </section>
 
+    <!-- Panel: Ventas (tipo caja registradora) -->
+    <section id="ventas" class="panel" data-roles="admin,ventas,inventario">
+      <h2>Registrar venta</h2>
+
+      <form id="formVenta">
+        <!-- Cliente -->
+        <h3>Datos del cliente</h3>
+        <div class="grid">
+          <label>ID cliente
+            <input name="id_cliente" placeholder="CLI-... (opcional)">
+          </label>
+          <label>Nombre*
+            <input name="cliente_nombre" placeholder="Nombre del cliente" required>
+          </label>
+          <label>Teléfono
+            <input name="cliente_telefono" placeholder="Teléfono">
+          </label>
+          <label>Email
+            <input name="cliente_email" placeholder="correo@ejemplo.com">
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" id="btnVentaGuardarCliente">Guardar / actualizar cliente</button>
+        </div>
+        <pre id="respCliente" class="resp"></pre>
+
+        <hr>
+
+        <!-- Producto a agregar -->
+        <h3>Agregar productos a la venta</h3>
+        <div class="grid" id="ventaProductoBox">
+          <label>Código del artículo*
+            <input name="id_del_articulo" id="ventaCodigo" placeholder="Ej. 101" autocomplete="off">
+          </label>
+          <label>Nombre
+            <input name="nombre_producto" id="ventaNombre" readonly>
+          </label>
+          <label>Precio sugerido
+            <input name="precio_sugerido" id="ventaPrecioSugerido" readonly>
+          </label>
+          <label>Stock actual
+            <input name="stock" id="ventaStock" readonly>
+          </label>
+          <label>Cantidad*
+            <input name="cantidad_item" id="ventaCantidad" type="number" step="1" min="1" value="1">
+          </label>
+          <label>Precio unitario (editable)
+            <input name="precio_unitario_item" id="ventaPrecioUnitario" type="number" step="0.01">
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" id="btnVentaBuscarProducto">Buscar producto (Enter también)</button>
+          <button type="button" id="btnVentaAgregarItem">Agregar a la venta</button>
+        </div>
+        <p class="help">
+          Escribe el código y presiona <strong>Enter</strong> o el botón "Buscar producto".<br>
+          Se cargará el nombre, precio sugerido y stock. El precio unitario se puede editar (descuento o recargo).
+        </p>
+        <pre id="ventaRespProducto" class="resp"></pre>
+
+        <!-- Tabla de items en la venta -->
+        <h3>Detalle de la venta</h3>
+        <div class="table-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Cant.</th>
+                <th>Precio unit.</th>
+                <th>Subtotal</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ventaItemsBody">
+              <!-- filas dinámicas -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Totales -->
+        <div class="totales-box">
+          <p>Total bruto: <strong>Q <span id="ventaTotalBruto">0.00</span></strong></p>
+          <p>Descuento total: <strong>Q <span id="ventaTotalDescuento">0.00</span></strong></p>
+          <p>Total neto: <strong>Q <span id="ventaTotalNeto">0.00</span></strong></p>
+        </div>
+
+        <hr>
+
+        <!-- Pago y crédito -->
+        <h3>Pago y condiciones</h3>
+        <div class="grid">
+          <label>Monto pagado ahora
+            <input name="pago_inicial_monto" id="pagoInicialMonto" type="number" step="0.01" placeholder="Q 0.00">
+          </label>
+          <label>Forma de pago
+            <select name="pago_inicial_forma" id="pagoInicialForma">
+              <option value="">(auto)</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="transferencia">Transferencia</option>
+            </select>
+          </label>
+          <label>Plazo de crédito
+            <select name="plazo_dias" id="plazoDias">
+              <option value="0">Sin crédito (contado)</option>
+              <option value="30">30 días</option>
+              <option value="60">60 días</option>
+              <option value="90">90 días</option>
+            </select>
+          </label>
+          <label>Notas
+            <input name="notas" id="ventaNotas" placeholder="Notas adicionales (opcional)">
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" id="btnVentaRegistrar">Registrar venta</button>
+        </div>
+        <p class="help">
+          Este formulario usa <code>POST /exec?path=sale_register</code> y registra:
+          venta, detalle, movimientos e incluso el pago inicial.
+        </p>
+        <pre id="respVenta" class="resp"></pre>
+      </form>
+    </section>
+
     <!-- Panel: Movimientos -->
     <section id="movimientos" class="panel" data-roles="admin,inventario">
       <h2>Registrar movimiento</h2>
-          <form id="formMovimiento">
-      <div class="grid">
-        <label>Operación*
-          <select name="operacion" required>
-            <option value="venta">Venta (salida de inventario)</option>
-            <option value="compra">Compra (ingreso a inventario)</option>
-            <option value="ajuste">Ajuste de stock</option>
-          </select>
-        </label>
+      <form id="formMovimiento">
+        <div class="grid">
+          <label>Operación*
+            <select name="operacion" required>
+              <option value="venta">Venta (salida de inventario)</option>
+              <option value="compra">Compra (ingreso a inventario)</option>
+              <option value="ajuste">Ajuste de stock</option>
+            </select>
+          </label>
 
-        <label>Id del artículo* <input name="id_del_articulo" required></label>
+          <label>Id del artículo* <input name="id_del_articulo" required></label>
 
-        <label>Cantidad* <input name="cantidad" type="number" step="1" required></label>
+          <label>Cantidad* <input name="cantidad" type="number" step="1" required></label>
 
-        <label>Precio unitario (venta)
-          <input name="precio_unitario" type="number" step="0.01" placeholder="Q 0.00">
-        </label>
+          <label>Precio unitario (venta)
+            <input name="precio_unitario" type="number" step="0.01" placeholder="Q 0.00">
+          </label>
 
-        <label>Costo unitario (compra)
-          <input name="costo_unitario" type="number" step="0.01" placeholder="Q 0.00">
-        </label>
+          <label>Costo unitario (compra)
+            <input name="costo_unitario" type="number" step="0.01" placeholder="Q 0.00">
+          </label>
 
-        <label>Motivo / referencia
-          <input name="motivo" placeholder="Factura, cliente, proveedor, etc.">
-        </label>
+          <label>Motivo / referencia
+            <input name="motivo" placeholder="Factura, cliente, proveedor, etc.">
+          </label>
 
-        <label>Usuario
-          <input name="usuario" placeholder="Opcional, se puede dejar el correo">
-        </label>
+          <label>Usuario
+            <input name="usuario" placeholder="Opcional, se puede dejar el correo">
+          </label>
 
-        <label>Observaciones
-          <input name="observaciones" placeholder="Notas adicionales">
-        </label>
-      </div>
+          <label>Observaciones
+            <input name="observaciones" placeholder="Notas adicionales">
+          </label>
+        </div>
 
-      <div class="actions">
-        <button type="submit">Registrar</button>
-      </div>
-      <!-- Info rápida del producto para modo "caja" -->
-      <div class="help" id="movProductoInfo" style="margin-top:8px;">
-        <!-- Se llenará desde admin.js al buscar el producto -->
-      </div>
-
-      <pre id="respMovimiento" class="resp"></pre>
-    </form>
-
+        <div class="actions">
+          <button type="submit">Registrar</button>
+        </div>
+        <pre id="respMovimiento" class="resp"></pre>
+      </form>
 
       <h3>Generar comprobante (para salidas)</h3>
       <form id="formRecibo">
