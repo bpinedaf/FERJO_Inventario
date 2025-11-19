@@ -334,6 +334,7 @@ let ventaItems = [];
 const formVenta           = document.getElementById('formVenta');
 const respVenta           = document.getElementById('respVenta');
 const respCliente         = document.getElementById('respCliente');
+const inputIdCliente      = formVenta.querySelector('[name="id_cliente"]');  // 🔹 Nuevo
 const ventaRespProducto   = document.getElementById('ventaRespProducto');
 const ventaItemsBody      = document.getElementById('ventaItemsBody');
 
@@ -425,6 +426,45 @@ if (btnVentaVerComprobante) {
       window.open(ventaDocUrlUltima, '_blank');
     }
   });
+}
+
+// --- Helpers de cliente (ventas) ---
+function rellenarCliente(cliente){
+  if (!cliente) return;
+  if (inputIdCliente) inputIdCliente.value = cliente.id_cliente || '';
+  const inpNom  = formVenta.querySelector('[name="cliente_nombre"]');
+  const inpTel  = formVenta.querySelector('[name="cliente_telefono"]');
+  const inpMail = formVenta.querySelector('[name="cliente_email"]');
+
+  if (inpNom)  inpNom.value  = cliente.nombre   || '';
+  if (inpTel)  inpTel.value  = cliente.telefono || '';
+  if (inpMail) inpMail.value = cliente.email    || '';
+}
+
+// Buscar cliente por ID (NIT)
+async function buscarClientePorId(){
+  if (!inputIdCliente) return;
+  const id = (inputIdCliente.value || '').trim();
+  respCliente.textContent = '';
+
+  if (!id){
+    // Si está vacío, no buscamos
+    return;
+  }
+
+  appendResp(respCliente, { debug:'GET customer_fetch', id_cliente: id });
+
+  const data = await getWithToken('customer_fetch', { id_cliente: id });
+
+  if (!data || !data.ok || !data.customer){
+    showResp(respCliente, data || { error:'Cliente no encontrado' });
+    // Dejamos el formulario en blanco para que se registren los datos
+    rellenarCliente({ id_cliente: id, nombre:'', telefono:'', email:'' });
+    return;
+  }
+
+  rellenarCliente(data.customer);
+  showResp(respCliente, data);  // si quieres ver el JSON devuelto
 }
 
 // --- Búsqueda de producto por código ---
@@ -579,6 +619,21 @@ document.getElementById('btnVentaGuardarCliente').addEventListener('click', asyn
     if (idInput) idInput.value = out.id_cliente;
   }
 });
+// --- Buscar cliente al ingresar el ID (NIT) ---
+if (inputIdCliente){
+  // Enter dentro del campo ID cliente
+  inputIdCliente.addEventListener('keydown', (ev)=>{
+    if (ev.key === 'Enter'){
+      ev.preventDefault();
+      buscarClientePorId();
+    }
+  });
+
+  // También al salir del campo (blur)
+  inputIdCliente.addEventListener('blur', ()=>{
+    buscarClientePorId();
+  });
+}
 
 // --- Registrar venta (sale_register) ---
 formVenta.addEventListener('submit', async (e)=>{
