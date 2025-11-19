@@ -8,6 +8,9 @@
 
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- Chart.js para las gráficas del resumen de ventas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
@@ -292,7 +295,10 @@
         </div>
         <pre id="respRecibo" class="resp"></pre>
       </form>
+
       <hr>
+
+      <!-- RESUMEN DE VENTAS DEL DÍA -->
       <h3>Resumen de ventas del día</h3>
       <form id="formResumenVentas">
         <label for="fechaResumenVentas">Fecha:</label>
@@ -303,9 +309,59 @@
         >
         <button type="submit">Ver resumen</button>
       </form>
-      
-      <pre id="respResumenVentas"></pre>
-      
+
+      <!-- Contenedor general del resumen -->
+      <section id="resumenVentasWrapper" style="margin-top:1rem;">
+
+        <!-- Totales del día (texto) -->
+        <div id="totales-dia"></div>
+
+        <!-- Bloque plegable para GRÁFICAS -->
+        <details id="charts-section" style="margin-top: 1.5rem;">
+          <summary style="cursor:pointer; font-weight:600;">
+            Ver gráficas del día
+          </summary>
+          <div class="charts-grid" style="margin-top:1rem; display:flex; flex-wrap:wrap; gap:24px;">
+            <div style="flex:1 1 260px; max-width:360px;">
+              <h4 style="margin-bottom:0.5rem;">Ventas contado vs crédito</h4>
+              <canvas id="chart-ventas"></canvas>
+            </div>
+            <div style="flex:1 1 260px; max-width:360px;">
+              <h4 style="margin-bottom:0.5rem;">Costo vs ganancia estimada</h4>
+              <canvas id="chart-margen"></canvas>
+            </div>
+          </div>
+        </details>
+
+        <!-- Bloque plegable para DETALLE DE VENTAS -->
+        <details id="detalle-section" style="margin-top: 1.5rem;">
+          <summary style="cursor:pointer; font-weight:600;">
+            Ver detalle de ventas
+          </summary>
+
+          <div class="table-wrapper" style="margin-top:1rem;">
+            <table id="detalle-ventas" class="tabla" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Hora</th>
+                  <th style="text-align:left;">Cliente</th>
+                  <th style="text-align:left;">Tipo</th>
+                  <th style="text-align:right;">Total neto</th>
+                  <th style="text-align:right;">Pagado</th>
+                  <th style="text-align:right;">Saldo</th>
+                </tr>
+              </thead>
+              <tbody id="detalle-ventas-body">
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- Debug opcional: respuesta cruda del API -->
+        <pre id="respResumenVentas" class="resp"></pre>
+      </section>
+
     </section>
 
   </main>
