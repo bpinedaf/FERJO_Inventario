@@ -742,4 +742,54 @@ if (out && out.ok){
 }
 
 });
+// ===================================================
+//          RESUMEN DIARIO DE VENTAS (REPORT)
+// ===================================================
+const formResumenVentas = document.getElementById('formResumenVentas');
+
+if (formResumenVentas) {
+  const inputFecha   = document.getElementById('resumenFecha');
+  const respResumen  = document.getElementById('respResumenVentas');
+
+  // Prefijar hoy como fecha por defecto
+  if (inputFecha && !inputFecha.value) {
+    const today = new Date();
+    inputFecha.value = today.toISOString().slice(0, 10); // YYYY-MM-DD
+  }
+
+  formResumenVentas.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    respResumen.textContent = 'Calculando resumen...';
+
+    const fecha = inputFecha.value; // puede venir vacío (usa hoy en el backend)
+    const params = fecha ? { fecha } : {};
+
+    const out = await getWithToken('sales_summary', params);
+
+    if (!out || !out.ok) {
+      showResp(respResumen, out || { ok:false, error:'Sin respuesta del servidor' });
+      return;
+    }
+
+    const r = out.resumen || {};
+    const c = r.contado  || {};
+    const cr = r.credito || {};
+
+    respResumen.textContent =
+      `Fecha: ${out.fecha}\n\n` +
+      `VENTAS TOTALES\n` +
+      `  Bruto:        Q ${Number(r.total_bruto || 0).toFixed(2)}\n` +
+      `  Descuento:    Q ${Number(r.total_descuento || 0).toFixed(2)}\n` +
+      `  Neto:         Q ${Number(r.total_neto || 0).toFixed(2)}\n` +
+      `  Utilidad est.:Q ${Number(r.utilidad_total || 0).toFixed(2)}\n\n` +
+      `CONTADO\n` +
+      `  Ventas:       ${c.cantidad_ventas || 0}\n` +
+      `  Neto:         Q ${Number(c.total_neto || 0).toFixed(2)}\n` +
+      `  Utilidad:     Q ${Number(c.utilidad || 0).toFixed(2)}\n\n` +
+      `CRÉDITO\n` +
+      `  Ventas:       ${cr.cantidad_ventas || 0}\n` +
+      `  Neto:         Q ${Number(cr.total_neto || 0).toFixed(2)}\n` +
+      `  Utilidad:     Q ${Number(cr.utilidad || 0).toFixed(2)}\n`;
+  });
+}
 
