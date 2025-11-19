@@ -761,18 +761,75 @@ if (formResumenVentas && respResumenVentas) {
       return;
     }
 
-    // Debug inicial
     appendResp(respResumenVentas, {
-      debug: 'GET sales_summary (getWithToken)',
+      debug: 'GET sales_summary',
       fecha
     });
 
     try {
-      // 👇 Usamos el mismo helper que para product_fetch, customer_fetch, etc.
+      // Llamamos al backend por GET, con token
       const out = await getWithToken('sales_summary', { fecha });
 
-      // Mostramos la respuesta real del backend
-      showResp(respResumenVentas, out);
+      // Si algo salió mal, mostramos el JSON crudo
+      if (!out || !out.ok) {
+        showResp(respResumenVentas, out || { error: 'Sin respuesta' });
+        return;
+      }
+
+      // --- Construimos la vista bonita ---
+      const t = out.totales || {};
+      const detalle = out.detalle_ventas || [];
+
+      let html = '';
+
+      html += `<h4>Totales del día (${out.fecha})</h4>`;
+      html += `<ul>
+        <li><strong>Total del día:</strong> Q ${Number(t.total_dia || 0).toFixed(2)}</li>
+        <li><strong>Contado:</strong> Q ${Number(t.contado || 0).toFixed(2)}</li>
+        <li><strong>Crédito:</strong> Q ${Number(t.credito || 0).toFixed(2)}</li>
+        <li><strong>Pagado hoy:</strong> Q ${Number(t.pagado_hoy || 0).toFixed(2)}</li>
+        <li><strong>Saldo pendiente:</strong> Q ${Number(t.saldo_pendiente || 0).toFixed(2)}</li>
+        <li><strong>Costo estimado:</strong> Q ${Number(t.costo_estimado || 0).toFixed(2)}</li>
+        <li><strong>Ganancia estimada:</strong> Q ${Number(t.ganancia_estimada || 0).toFixed(2)}</li>
+      </ul>`;
+
+      if (detalle.length) {
+        html += `<h4>Detalle de ventas</h4>`;
+        html += `<div class="table-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Cliente</th>
+                <th>Tipo</th>
+                <th>Total neto</th>
+                <th>Pagado</th>
+                <th>Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        detalle.forEach(v => {
+          html += `
+            <tr>
+              <td>${v.hora || ''}</td>
+              <td>${v.cliente || ''}</td>
+              <td>${v.tipo_venta || ''}</td>
+              <td>Q ${Number(v.total_neto || 0).toFixed(2)}</td>
+              <td>Q ${Number(v.pagado || 0).toFixed(2)}</td>
+              <td>Q ${Number(v.saldo || 0).toFixed(2)}</td>
+            </tr>
+          `;
+        });
+
+        html += `</tbody></table></div>`;
+      } else {
+        html += `<p>No hay ventas registradas para esta fecha.</p>`;
+      }
+
+      respResumenVentas.innerHTML = html;
+
     } catch (err) {
       showResp(respResumenVentas, { error: String(err) });
     }
