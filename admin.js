@@ -61,7 +61,7 @@ function apiUrlAuth(path, extraParams = {}){
   return base + sep + qs;
 }
 
-// Helpers que usan auth.js si está disponible; si no, hacen fallback manual
+// POST urlencoded + token (usa auth.js si está disponible)
 async function postWithToken(path, payload={}){
   if (typeof window.postForm === 'function') {
     return await window.postForm(path, payload);      // usa auth.js (token en body)
@@ -80,6 +80,24 @@ async function getWithToken(path, params={}){
   // Fallback manual (query + token)
   const url = apiUrlAuth(path, params);
   return await fetchJSON(url);
+}
+
+// Helper para POST JSON (ventas)
+async function postJSONWithToken(path, payload={}){
+  const base = apiBase();
+  const url  = base + (base.includes('?') ? '&' : '?') + 'path=' + encodeURIComponent(path);
+  const body = JSON.stringify({ ...payload, token: getToken() });
+  try{
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body
+    });
+    const txt = await res.text();
+    try { return JSON.parse(txt); } catch { return { ok:false, raw:txt, status:res.status }; }
+  }catch(err){
+    return { ok:false, error:String(err) };
+  }
 }
 
 // ===================================================
@@ -254,49 +272,29 @@ document.getElementById('formFoto').addEventListener('submit', async (e)=>{
 // ===================================================
 //              MOVIMIENTOS + RECIBO PDF
 // ===================================================
-// -------- Movimientos y recibo --------
-// ===================================================
-//              MOVIMIENTOS + RECIBO PDF
-// ===================================================
-// -------- Movimientos (usa postWithToken) --------
+// -------- Movimientos --------
 document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const respEl = document.getElementById('respMovimiento');
   respEl.textContent = '';
 
-  // Tomar los valores del form como objeto plano
-  const fd   = new FormData(e.target);
-  const raw  = Object.fromEntries(fd.entries());
+  const fd = new FormData(e.target);
 
   // Mapear operación de negocio -> tipo de movimiento para el backend
-  const operacion = raw.operacion || 'venta';
-  let tipo = 'salida';               // por defecto, venta = salida de inventario
+  const operacion = fd.get('operacion') || 'venta';
+  let tipo = 'salida'; // por defecto, venta = salida de inventario
   if (operacion === 'compra') tipo = 'ingreso';
   else if (operacion === 'ajuste') tipo = 'ajuste';
-  raw.tipo = tipo;
+  fd.set('tipo', tipo);
 
   // Normalizar numéricos
-  raw.cantidad = Number(raw.cantidad || 0) || 0;
-  if (raw.precio_unitario) {
-    raw.precio_unitario = Number(raw.precio_unitario) || 0;
-  }
-  if (raw.costo_unitario) {
-    raw.costo_unitario = Number(raw.costo_unitario) || 0;
-  }
+  const raw = Object.fromEntries(fd.entries());
+  if (raw.cantidad !== undefined) raw.cantidad = Number(raw.cantidad || 0);
+  if (raw.precio_unitario) raw.precio_unitario = Number(raw.precio_unitario);
+  if (raw.costo_unitario)  raw.costo_unitario  = Number(raw.costo_unitario);
 
-  // Validaciones mínimas
-  if (!raw.id_del_articulo) {
-    alert('Ingresa un id_del_articulo');
-    return;
-  }
-  if (!raw.cantidad) {
-    alert('La cantidad debe ser distinta de 0');
-    return;
-  }
+  appendResp(respEl, { debug:'POST movement' });
 
-  appendResp(respEl, { debug:'POST movement', payload: raw });
-
-  // Enviar al backend usando el helper con token
   const out = await postWithToken('movement', raw);
   showResp(respEl, out);
 
@@ -306,88 +304,8 @@ document.getElementById('formMovimiento').addEventListener('submit', async (e)=>
     if (recForm) recForm.value = out.id_movimiento;
   }
 });
-// ===================================================
-//  BÚSQUEDA RÁPIDA DE PRODUCTO EN "MOVIMIENTOS"
-//  - Escribir código y presionar Enter
-//  - Autollenar nombre y precio de venta
-// ===================================================
-(function setupMovimientoLookup(){
-  const formMov = document.getElementById('formMovimiento');
-  if (!formMov) return;
 
-  const inputId     = formMov.querySelector('[name="id_del_articulo"]');
-  const inputCant   = formMov.querySelector('[name="cantidad"]');
-  const inputPrecio = formMov.querySelector('[name="precio_unitario"]');
-  const infoBox     = document.getElementById('movProductoInfo');
-
-  if (!inputId) return;
-
-  async function lookupProductoMovimiento(){
-    const id = (inputId.value || '').trim();
-    if (!id){
-      if (infoBox) infoBox.textContent = '';
-      return;
-    }
-
-    // Limpia mensaje previo
-    if (infoBox) {
-      infoBox.textContent = 'Buscando producto...';
-    }
-
-    // Llamar al mismo endpoint que usamos en Productos
-    const data = await getWithToken('product_fetch', { id });
-
-    if (!data || !data.ok || !data.product){
-      if (infoBox) {
-        infoBox.textContent = '⚠ Producto no encontrado para código: ' + id;
-      }
-      // No tocar precio si no se encontró
-      return;
-    }
-
-    const p = data.product;
-
-    // Autollenar precio de venta sugerido (editable)
-    if (inputPrecio) {
-      const precio = Number(p.precio_de_venta || 0) || 0;
-      inputPrecio.value = precio ? precio : '';
-    }
-
-    // Si cantidad está vacía, asumir 1
-    if (inputCant && (!inputCant.value || Number(inputCant.value) === 0)) {
-      inputCant.value = 1;
-    }
-
-    // Mostrar info amigable en la banda de ayuda
-    if (infoBox) {
-      const precioTxt = p.precio_de_venta ? `Q${Number(p.precio_de_venta).toFixed(2)}` : '—';
-      const stockTxt  = (p.cantidad !== undefined && p.cantidad !== null)
-        ? String(p.cantidad)
-        : 'N/D';
-
-      infoBox.textContent =
-        `Producto: ${p.id_del_articulo || id} · ${p.nombre || '(sin nombre)'} ` +
-        `— Precio sugerido: ${precioTxt} — Stock: ${stockTxt}`;
-    }
-  }
-
-  // Cuando se presiona Enter en el código, buscar producto
-  inputId.addEventListener('keydown', (ev)=>{
-    if (ev.key === 'Enter'){
-      ev.preventDefault();
-      lookupProductoMovimiento();
-    }
-  });
-
-  // Opcional: al salir del campo también podemos intentar la búsqueda
-  inputId.addEventListener('blur', ()=>{
-    if ((inputId.value || '').trim()){
-      lookupProductoMovimiento();
-    }
-  });
-})();
-
-// -------- Recibo PDF (sin cambios por ahora) --------
+// -------- Recibo PDF --------
 document.getElementById('formRecibo').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const respEl = document.getElementById('respRecibo');
@@ -401,3 +319,273 @@ document.getElementById('formRecibo').addEventListener('submit', async (e)=>{
   if(out && out.ok && out.url){ window.open(out.url, '_blank'); }
 });
 
+// ===================================================
+//                VENTAS (caja registradora)
+// ===================================================
+let ventaItems = [];
+
+// Dom refs
+const formVenta           = document.getElementById('formVenta');
+const respVenta           = document.getElementById('respVenta');
+const respCliente         = document.getElementById('respCliente');
+const ventaRespProducto   = document.getElementById('ventaRespProducto');
+const ventaItemsBody      = document.getElementById('ventaItemsBody');
+
+const inputVentaCodigo    = document.getElementById('ventaCodigo');
+const inputVentaNombre    = document.getElementById('ventaNombre');
+const inputVentaPrecioSug = document.getElementById('ventaPrecioSugerido');
+const inputVentaStock     = document.getElementById('ventaStock');
+const inputVentaCantidad  = document.getElementById('ventaCantidad');
+const inputVentaPrecioUni = document.getElementById('ventaPrecioUnitario');
+
+const spanTotalBruto      = document.getElementById('ventaTotalBruto');
+const spanTotalDesc       = document.getElementById('ventaTotalDescuento');
+const spanTotalNeto       = document.getElementById('ventaTotalNeto');
+
+const inputPagoInicialMonto = document.getElementById('pagoInicialMonto');
+const inputPagoInicialForma = document.getElementById('pagoInicialForma');
+const selectPlazoDias       = document.getElementById('plazoDias');
+
+// --- Helpers de ventas ---
+function limpiarProductoActual(){
+  inputVentaNombre.value    = '';
+  inputVentaPrecioSug.value = '';
+  inputVentaPrecioUni.value = '';
+  inputVentaStock.value     = '';
+  inputVentaCantidad.value  = '1';
+  ventaRespProducto.textContent = '';
+}
+
+function renderVentaItems(){
+  ventaItemsBody.innerHTML = '';
+  ventaItems.forEach((it, idx)=>{
+    const tr = document.createElement('tr');
+    const subtotal = it.cantidad * it.precio_unitario;
+    tr.innerHTML = `
+      <td>${it.id_del_articulo}</td>
+      <td>${it.nombre}</td>
+      <td>${it.cantidad}</td>
+      <td>Q ${it.precio_unitario.toFixed(2)}</td>
+      <td>Q ${subtotal.toFixed(2)}</td>
+      <td><button type="button" class="ventaRemoveItem" data-index="${idx}">✕</button></td>
+    `;
+    ventaItemsBody.appendChild(tr);
+  });
+}
+
+function recomputeVentaTotals(){
+  let totalBruto = 0;
+  let totalNeto  = 0;
+
+  ventaItems.forEach(it=>{
+    const bruto = it.cantidad * it.precio_sugerido;
+    const neto  = it.cantidad * it.precio_unitario;
+    totalBruto += bruto;
+    totalNeto  += neto;
+  });
+
+  const totalDesc = totalBruto - totalNeto;
+
+  spanTotalBruto.textContent = totalBruto.toFixed(2);
+  spanTotalNeto.textContent  = totalNeto.toFixed(2);
+  spanTotalDesc.textContent  = totalDesc.toFixed(2);
+}
+
+function resetVenta(){
+  ventaItems = [];
+  renderVentaItems();
+  recomputeVentaTotals();
+  respVenta.textContent = '';
+  inputPagoInicialMonto.value = '';
+  inputPagoInicialForma.value = '';
+  selectPlazoDias.value       = '0';
+  formVenta.querySelector('[name="notas"]').value = '';
+}
+
+// --- Búsqueda de producto por código ---
+async function buscarProductoVenta(){
+  const id = (inputVentaCodigo.value || '').trim();
+  if (!id){
+    alert('Ingresa un código de artículo');
+    return;
+  }
+  ventaRespProducto.textContent = 'Buscando producto...';
+
+  const data = await getWithToken('product_fetch', { id });
+  if (!data || !data.ok || !data.product){
+    ventaRespProducto.textContent = '❌ Producto no encontrado';
+    limpiarProductoActual();
+    return;
+  }
+
+  const p = data.product;
+  const precio = Number(p.precio_de_venta || 0) || 0;
+  const stock  = Number(p.cantidad || 0) || 0;
+
+  inputVentaNombre.value    = p.nombre || '';
+  inputVentaPrecioSug.value = precio ? precio.toFixed(2) : '';
+  inputVentaPrecioUni.value = precio ? precio.toFixed(2) : '';
+  inputVentaStock.value     = stock;
+
+  ventaRespProducto.textContent =
+    `✅ ${p.nombre} • Precio sugerido: Q ${precio.toFixed(2)} • Stock: ${stock}`;
+}
+
+// Enter en el campo código
+inputVentaCodigo.addEventListener('keydown', (ev)=>{
+  if (ev.key === 'Enter'){
+    ev.preventDefault();
+    buscarProductoVenta();
+  }
+});
+
+// Botón buscar
+document.getElementById('btnVentaBuscarProducto').addEventListener('click', ()=>{
+  buscarProductoVenta();
+});
+
+// --- Agregar item al carrito ---
+document.getElementById('btnVentaAgregarItem').addEventListener('click', ()=>{
+  const codigo = (inputVentaCodigo.value || '').trim();
+  const nombre = (inputVentaNombre.value || '').trim();
+  const cant   = Number(inputVentaCantidad.value || 0);
+  const precioSug = Number(inputVentaPrecioSug.value || 0);
+  const precioUni = Number(inputVentaPrecioUni.value || 0);
+
+  if (!codigo){
+    alert('Ingresa el código del artículo y búscalo primero.');
+    return;
+  }
+  if (!nombre){
+    alert('Primero busca el producto para cargar su nombre y precio sugerido.');
+    return;
+  }
+  if (!cant || cant <= 0){
+    alert('La cantidad debe ser mayor que cero.');
+    return;
+  }
+  if (!precioUni || precioUni <= 0){
+    alert('El precio unitario debe ser mayor que cero.');
+    return;
+  }
+
+  ventaItems.push({
+    id_del_articulo: codigo,
+    nombre,
+    cantidad: cant,
+    precio_sugerido: precioSug || precioUni, // fallback
+    precio_unitario: precioUni
+  });
+
+  renderVentaItems();
+  recomputeVentaTotals();
+  // Dejamos el código en blanco para seguir agregando
+  inputVentaCodigo.value = '';
+  limpiarProductoActual();
+  inputVentaCodigo.focus();
+});
+
+// Eliminar item del carrito (delegación)
+ventaItemsBody.addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('.ventaRemoveItem');
+  if (!btn) return;
+  const idx = Number(btn.dataset.index);
+  if (!isNaN(idx) && idx >= 0 && idx < ventaItems.length){
+    ventaItems.splice(idx,1);
+    renderVentaItems();
+    recomputeVentaTotals();
+  }
+});
+
+// --- Guardar / actualizar cliente (customer_upsert) ---
+document.getElementById('btnVentaGuardarCliente').addEventListener('click', async ()=>{
+  respCliente.textContent = '';
+
+  const fd = new FormData(formVenta);
+  const payload = {
+    id_cliente: fd.get('id_cliente') || '',
+    nombre:     fd.get('cliente_nombre') || '',
+    telefono:   fd.get('cliente_telefono') || '',
+    email:      fd.get('cliente_email') || ''
+  };
+
+  if (!payload.nombre){
+    alert('El nombre del cliente es obligatorio para guardarlo.');
+    return;
+  }
+
+  appendResp(respCliente, { debug:'POST customer_upsert', payload });
+
+  const out = await postWithToken('customer_upsert', payload);
+  showResp(respCliente, out);
+
+  // Si el backend devuelve id_cliente, lo rellenamos
+  if (out && out.ok && out.id_cliente){
+    const idInput = formVenta.querySelector('[name="id_cliente"]');
+    if (idInput) idInput.value = out.id_cliente;
+  }
+});
+
+// --- Registrar venta (sale_register) ---
+formVenta.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  respVenta.textContent = '';
+
+  if (!ventaItems.length){
+    alert('Agrega al menos un producto a la venta.');
+    return;
+  }
+
+  const fd = new FormData(formVenta);
+
+  const id_cliente       = (fd.get('id_cliente') || '').trim();
+  const cliente_nombre   = (fd.get('cliente_nombre') || '').trim();
+  const cliente_telefono = (fd.get('cliente_telefono') || '').trim();
+  const cliente_email    = (fd.get('cliente_email') || '').trim();
+  const notas            = (fd.get('notas') || '').trim();
+
+  if (!cliente_nombre){
+    alert('El nombre del cliente es obligatorio.');
+    return;
+  }
+
+  let pagoInicialMonto = Number(fd.get('pago_inicial_monto') || 0);
+  if (isNaN(pagoInicialMonto) || pagoInicialMonto < 0) pagoInicialMonto = 0;
+  const pagoInicialForma = (fd.get('pago_inicial_forma') || '').trim();
+  const plazoDias        = Number(fd.get('plazo_dias') || 0);
+
+  const payload = {
+    id_cliente,
+    cliente_nombre,
+    cliente_telefono,
+    cliente_email,
+    plazo_dias: plazoDias,
+    notas,
+    items: ventaItems.map(it => ({
+      id_del_articulo: it.id_del_articulo,
+      cantidad: it.cantidad,
+      precio_unitario: it.precio_unitario
+    }))
+  };
+
+  if (pagoInicialMonto > 0){
+    payload.pago_inicial = {
+      monto: pagoInicialMonto,
+      forma_pago: pagoInicialForma || ''
+    };
+  }
+
+  appendResp(respVenta, { debug:'POST sale_register', payload_preview: {
+    cliente_nombre,
+    items: payload.items.length
+  }});
+
+  const out = await postJSONWithToken('sale_register', payload);
+  showResp(respVenta, out);
+
+  if (out && out.ok){
+    alert(`Venta registrada correctamente.\nID: ${out.id_venta}\nTotal: Q ${Number(out.total_neto || 0).toFixed(2)}`);
+    resetVenta();
+    // Opcional: podríamos prellenar un futuro "comprobante de venta" con out.id_venta
+  }
+});
