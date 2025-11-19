@@ -82,23 +82,29 @@ async function getWithToken(path, params={}){
   return await fetchJSON(url);
 }
 
-// Helper para POST JSON (ventas)
-async function postJSONWithToken(path, payload={}){
-  const base = apiBase();
-  const url  = base + (base.includes('?') ? '&' : '?') + 'path=' + encodeURIComponent(path);
-  const body = JSON.stringify({ ...payload, token: getToken() });
-  try{
+// Helper para POST JSON (ventas) SIN disparar preflight
+async function postJSONWithToken(path, payload = {}) {
+  // Usamos apiUrlAuth para agregar path y token en la querystring
+  const url  = apiUrlAuth(path);
+  const body = JSON.stringify(payload);  // el token va en la URL, no en el body
+
+  try {
     const res = await fetch(url, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
+      method: 'POST',
+      // 👇 Sin headers personalizados: fetch usa text/plain por defecto
       body
     });
     const txt = await res.text();
-    try { return JSON.parse(txt); } catch { return { ok:false, raw:txt, status:res.status }; }
-  }catch(err){
-    return { ok:false, error:String(err) };
+    try {
+      return JSON.parse(txt);
+    } catch {
+      return { ok: false, raw: txt, status: res.status };
+    }
+  } catch (err) {
+    return { ok: false, error: String(err) };
   }
 }
+
 
 // ===================================================
 //               PRODUCTOS: upsert / fetch
