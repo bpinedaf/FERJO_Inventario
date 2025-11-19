@@ -294,16 +294,18 @@
       </form>
       <hr>
       <h3>Resumen de ventas del día</h3>
-      <form id="formResumenVentas" class="form-row">
-        <label>
-          Fecha:
-          <input type="date" id="resumenFecha" name="fecha">
-        </label>
+      <form id="formResumenVentas">
+        <label for="fechaResumenVentas">Fecha:</label>
+        <input
+          type="date"
+          id="fechaResumenVentas"
+          name="fecha"  <!-- IMPORTANTE: name="fecha" -->
+        >
         <button type="submit">Ver resumen</button>
       </form>
       
-      <pre id="respResumenVentas" class="resp-box"></pre>
-
+      <pre id="respResumenVentas"></pre>
+      
     </section>
 
   </main>
