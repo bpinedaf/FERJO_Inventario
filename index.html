@@ -250,7 +250,7 @@
               <option value="ajuste">Ajuste de stock</option>
             </select>
           </label>
-
+        
           <label>Id del artículo* <input name="id_del_articulo" required></label>
 
           <label>Cantidad* <input name="cantidad" type="number" step="1" required></label>
@@ -292,6 +292,18 @@
         </div>
         <pre id="respRecibo" class="resp"></pre>
       </form>
+      <hr>
+      <h3>Resumen de ventas del día</h3>
+      <form id="formResumenVentas" class="form-row">
+        <label>
+          Fecha:
+          <input type="date" id="resumenFecha" name="fecha">
+        </label>
+        <button type="submit">Ver resumen</button>
+      </form>
+      
+      <pre id="respResumenVentas" class="resp-box"></pre>
+
     </section>
 
   </main>
