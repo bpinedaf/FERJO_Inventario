@@ -761,20 +761,25 @@ if (formResumenVentas && respResumenVentas) {
       return;
     }
 
+    // 1) Construimos la URL a mano: GET /exec?path=sales_summary&fecha=YYYY-MM-DD&token=...
+    const base = apiBase();
+    const sep  = base.includes('?') ? '&' : '?';
+    const url  = base + sep +
+      'path='  + encodeURIComponent('sales_summary') +
+      '&fecha=' + encodeURIComponent(fecha) +
+      '&token=' + encodeURIComponent(getToken());
+
+    // 2) Mostramos en pantalla la URL y la fecha (debug)
     appendResp(respResumenVentas, {
-      debug: 'POST sales_summary',
-      fecha
+      debug: 'GET sales_summary',
+      fecha,
+      url
     });
 
-    try {
-      // 🔹 Llamamos al backend por POST, con token
-      const out = await postWithToken('sales_summary', { fecha });
+    // 3) Llamamos al backend usando nuestro fetchJSON
+    const out = await fetchJSON(url, { method: 'GET' });
 
-      // Sobrescribimos el debug con la respuesta real
-      showResp(respResumenVentas, out);
-    } catch (err) {
-      showResp(respResumenVentas, { error: String(err) });
-    }
+    // 4) Mostramos la respuesta tal cual
+    showResp(respResumenVentas, out);
   });
 }
-
