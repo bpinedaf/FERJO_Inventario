@@ -414,9 +414,10 @@ function resetVenta(){
   ventaDocUrlUltima = '';
   if (btnVentaVerComprobante) {
     btnVentaVerComprobante.disabled = true;
+  }
 }
 
-  // --- Aquí va el bloque d) ---
+// --- Aquí va el bloque d) ---
 if (btnVentaVerComprobante) {
   btnVentaVerComprobante.addEventListener('click', ()=>{
     if (ventaDocUrlUltima) {
@@ -424,6 +425,36 @@ if (btnVentaVerComprobante) {
     }
   });
 }
+
+// --- Búsqueda de producto por código ---
+async function buscarProductoVenta(){
+  const id = (inputVentaCodigo.value || '').trim();
+  if (!id){
+    alert('Ingresa un código de artículo');
+    return;
+  }
+  ventaRespProducto.textContent = 'Buscando producto...';
+
+  const data = await getWithToken('product_fetch', { id });
+  if (!data || !data.ok || !data.product){
+    ventaRespProducto.textContent = '❌ Producto no encontrado';
+    limpiarProductoActual();
+    return;
+  }
+
+  const p = data.product;
+  const precio = Number(p.precio_de_venta || 0) || 0;
+  const stock  = Number(p.cantidad || 0) || 0;
+
+  inputVentaNombre.value    = p.nombre || '';
+  inputVentaPrecioSug.value = precio ? precio.toFixed(2) : '';
+  inputVentaPrecioUni.value = precio ? precio.toFixed(2) : '';
+  inputVentaStock.value     = stock;
+
+  ventaRespProducto.textContent =
+    `✅ ${p.nombre} • Precio sugerido: Q ${precio.toFixed(2)} • Stock: ${stock}`;
+}
+
 // --- Búsqueda de producto por código ---
 async function buscarProductoVenta(){
   const id = (inputVentaCodigo.value || '').trim();
