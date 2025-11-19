@@ -586,12 +586,18 @@ formVenta.addEventListener('submit', async (e)=>{
     items: payload.items.length
   }});
 
-  const out = await postJSONWithToken('sale_register', payload);
+    const out = await postJSONWithToken('sale_register', payload);
   showResp(respVenta, out);
 
   if (out && out.ok){
     alert(`Venta registrada correctamente.\nID: ${out.id_venta}\nTotal: Q ${Number(out.total_neto || 0).toFixed(2)}`);
+
+    // Si se generó comprobante, lo abrimos en una nueva pestaña
+    if (out.doc_url){
+      window.open(out.doc_url, '_blank');
+    }
+
     resetVenta();
-    // Opcional: podríamos prellenar un futuro "comprobante de venta" con out.id_venta
   }
 });
+
