@@ -545,6 +545,7 @@ document.getElementById('btnVentaAgregarItem').addEventListener('click', ()=>{
   const cant   = Number(inputVentaCantidad.value || 0);
   const precioSug = Number(inputVentaPrecioSug.value || 0);
   const precioUni = Number(inputVentaPrecioUni.value || 0);
+  const stockActual = Number(inputVentaStock.value || 0);   // 👈 stock que ya tenemos en el campo
 
   if (!codigo){
     alert('Ingresa el código del artículo y búscalo primero.');
@@ -563,6 +564,28 @@ document.getElementById('btnVentaAgregarItem').addEventListener('click', ()=>{
     return;
   }
 
+  // --- Control de stock en el carrito ---
+  // Cuántas unidades de este código ya están en la venta actual
+  let yaEnCarrito = 0;
+  ventaItems.forEach(it => {
+    if (it.id_del_articulo === codigo) {
+      yaEnCarrito += Number(it.cantidad || 0);
+    }
+  });
+
+  const disponible = stockActual - yaEnCarrito;
+
+  if (stockActual <= 0 || disponible <= 0) {
+    alert('Este producto no tiene existencias disponibles en este momento.');
+    return;
+  }
+
+  if (cant > disponible) {
+    alert(`Solo hay ${disponible} unidad(es) disponibles de este producto. Ajusta la cantidad.`);
+    return;
+  }
+
+  // Si pasa todas las validaciones, agregamos al carrito
   ventaItems.push({
     id_del_articulo: codigo,
     nombre,
@@ -573,7 +596,11 @@ document.getElementById('btnVentaAgregarItem').addEventListener('click', ()=>{
 
   renderVentaItems();
   recomputeVentaTotals();
-  // Dejamos el código en blanco para seguir agregando
+
+  // (Opcional) mostrar el stock restante en el campo
+  inputVentaStock.value = disponible - cant;
+
+  // Dejamos listo para el siguiente producto
   inputVentaCodigo.value = '';
   limpiarProductoActual();
   inputVentaCodigo.focus();
