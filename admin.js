@@ -745,10 +745,10 @@ if (out && out.ok){
 // ===================================================
 //        RESUMEN DE VENTAS DEL DÍA (sales_summary)
 // ===================================================
-const formResumenVentas  = document.getElementById('formResumenVentas');
-const respResumenVentas  = document.getElementById('respResumenVentas');
+const formResumenVentas = document.getElementById('formResumenVentas');
+const respResumenVentas = document.getElementById('respResumenVentas');
 
-if (formResumenVentas) {
+if (formResumenVentas && respResumenVentas) {
   formResumenVentas.addEventListener('submit', async (e) => {
     e.preventDefault();
     respResumenVentas.textContent = '';
@@ -766,9 +766,15 @@ if (formResumenVentas) {
       fecha
     });
 
-    // 🔹 AHORA USAMOS POST, NO GET
-    const out = await postWithToken('sales_summary', { fecha });
-    showResp(respResumenVentas, out);
+    try {
+      // 🔹 Llamamos al backend por POST, con token
+      const out = await postWithToken('sales_summary', { fecha });
+
+      // Sobrescribimos el debug con la respuesta real
+      showResp(respResumenVentas, out);
+    } catch (err) {
+      showResp(respResumenVentas, { error: String(err) });
+    }
   });
 }
 
