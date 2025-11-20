@@ -794,7 +794,6 @@ function drawSimplePie(container, slices) {
   ctx.fill();
 }
 
-
 // ===================================================
 //        RESUMEN DE VENTAS DEL DÍA (sales_summary)
 // ===================================================
@@ -807,7 +806,7 @@ if (formResumenVentas && respResumenVentas) {
     respResumenVentas.textContent = '';
 
     const fd    = new FormData(formResumenVentas);
-    const fecha = (fd.get('fecha') || '').trim();   // name="fecha" en el input
+    const fecha = (fd.get('fecha') || '').trim();
 
     if (!fecha) {
       alert('Selecciona una fecha.');
@@ -830,131 +829,140 @@ if (formResumenVentas && respResumenVentas) {
       const t       = out.totales || {};
       const detalle = out.detalle_ventas || [];
 
+      const totContado = Number(t.contado || 0);
+      const totCredito = Number(t.credito || 0);
+      const totCosto   = Number(t.costo_estimado || 0);
+      const totGan     = Number(t.ganancia_estimada || 0);
+
       let html = '';
 
-      // --- Totales del día en sección colapsable ---
+      // ---------- Totales del día (colapsable) ----------
       html += `
-        <details class="summary-block" open>
-          <summary>Totales del día (${out.fecha})</summary>
+        <details class="resumen-section" open>
+          <summary><strong>Totales del día (${out.fecha})</strong></summary>
           <ul>
-            <li><strong>Total del día:</strong> Q ${Number(t.total_dia        || 0).toFixed(2)}</li>
-            <li><strong>Contado:</strong> Q ${Number(t.contado               || 0).toFixed(2)}</li>
-            <li><strong>Crédito:</strong> Q ${Number(t.credito               || 0).toFixed(2)}</li>
-            <li><strong>Pagado hoy:</strong> Q ${Number(t.pagado_hoy         || 0).toFixed(2)}</li>
+            <li><strong>Total del día:</strong> Q ${Number(t.total_dia || 0).toFixed(2)}</li>
+            <li><strong>Contado:</strong> Q ${totContado.toFixed(2)}</li>
+            <li><strong>Crédito:</strong> Q ${totCredito.toFixed(2)}</li>
+            <li><strong>Pagado hoy:</strong> Q ${Number(t.pagado_hoy || 0).toFixed(2)}</li>
             <li><strong>Saldo pendiente:</strong> Q ${Number(t.saldo_pendiente || 0).toFixed(2)}</li>
-            <li><strong>Costo estimado:</strong> Q ${Number(t.costo_estimado || 0).toFixed(2)}</li>
-            <li><strong>Ganancia estimada:</strong> Q ${Number(t.ganancia_estimada || 0).toFixed(2)}</li>
+            <li><strong>Costo estimado:</strong> Q ${totCosto.toFixed(2)}</li>
+            <li><strong>Ganancia estimada:</strong> Q ${totGan.toFixed(2)}</li>
           </ul>
         </details>
       `;
 
-      // --- Gráficas en sección colapsable (igual que antes) ---
+      // ---------- Gráficas (colapsable) ----------
       html += `
-        <details class="summary-block" open>
+        <details class="resumen-section">
           <summary>Ver gráficas del día</summary>
           <div class="charts-row">
-            <div class="chart-card">
+            <div class="chart-box">
               <h5>Ventas contado vs crédito</h5>
-              <div class="pie-chart" data-chart="contado-credito"></div>
+              <div id="chartContadoCredito"></div>
             </div>
-            <div class="chart-card">
+            <div class="chart-box">
               <h5>Costo vs ganancia estimada</h5>
-              <div class="pie-chart" data-chart="costo-ganancia"></div>
+              <div id="chartCostoGanancia"></div>
             </div>
           </div>
         </details>
       `;
 
-      // --- Detalle de ventas: cada venta colapsable ---
-      if (detalle.length) {
-        html += `
-          <details class="summary-block">
-            <summary>Ver detalle de ventas</summary>
-            <div class="ventas-list">
-        `;
+      // ---------- Detalle de ventas (colapsable) ----------
+      html += `
+        <details class="resumen-section">
+          <summary>Ver detalle de ventas</summary>
+      `;
 
+      if (detalle.length) {
         detalle.forEach(v => {
-          const items = Array.isArray(v.items) ? v.items : [];
+          const items = Array.isArray(v.detalle_items) ? v.detalle_items : [];
 
           html += `
-            <details class="venta-item">
+            <details class="venta-card">
               <summary>
-                <div class="venta-summary-row">
-                  <span class="venta-id">${v.id_venta || ''}</span>
-                  <span class="venta-cliente">${v.cliente || ''}</span>
-                  <span class="venta-tipo">${v.tipo_venta || ''}</span>
-                  <span class="venta-total">Total: Q ${Number(v.total_neto || 0).toFixed(2)}</span>
-                  <span class="venta-pagado">Pagado: Q ${Number(v.pagado || 0).toFixed(2)}</span>
-                  <span class="venta-saldo">Saldo: Q ${Number(v.saldo || 0).toFixed(2)}</span>
+                <div class="venta-summary">
+                  <div class="venta-summary-left">
+                    <div class="venta-id">${v.id_venta || ''}</div>
+                    <div class="venta-cliente">${v.cliente || ''}</div>
+                  </div>
+                  <div class="venta-summary-right">
+                    <span class="venta-tipo ${v.tipo_venta === 'credito' ? 'badge-credito' : 'badge-contado'}">
+                      ${v.tipo_venta || ''}
+                    </span>
+                    <span class="venta-monto">Total: Q ${Number(v.total_neto || 0).toFixed(2)}</span>
+                    <span class="venta-monto">Pagado: Q ${Number(v.pagado || 0).toFixed(2)}</span>
+                    <span class="venta-monto">Saldo: Q ${Number(v.saldo || 0).toFixed(2)}</span>
+                  </div>
                 </div>
               </summary>
-              ${
-                items.length
-                  ? `
-                    <div class="table-wrapper">
-                      <table class="tabla tabla-venta-detalle">
-                        <thead>
-                          <tr>
-                            <th>Línea</th>
-                            <th>Código</th>
-                            <th>Producto</th>
-                            <th>Cant.</th>
-                            <th>Precio unit.</th>
-                            <th>Subtotal</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          ${items.map(it => `
-                            <tr>
-                              <td>${it.linea || ''}</td>
-                              <td>${it.id_del_articulo || ''}</td>
-                              <td>${it.nombre || ''}</td>
-                              <td>${Number(it.cantidad || 0)}</td>
-                              <td>Q ${Number(it.precio_unitario || 0).toFixed(2)}</td>
-                              <td>Q ${Number(it.subtotal || 0).toFixed(2)}</td>
-                            </tr>
-                          `).join('')}
-                        </tbody>
-                      </table>
-                    </div>
-                  `
-                  : `<p class="help">Sin detalle de artículos para esta venta.</p>`
-              }
-            </details>
           `;
-        });
 
-        html += `
-            </div>
-          </details>
-        `;
+          if (items.length) {
+            html += `
+              <div class="table-wrapper">
+                <table class="tabla tabla-detalle-venta">
+                  <thead>
+                    <tr>
+                      <th>Línea</th>
+                      <th>Código</th>
+                      <th>Producto</th>
+                      <th>Cant.</th>
+                      <th>Precio unit.</th>
+                      <th>Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+            `;
+            items.forEach(it => {
+              html += `
+                <tr>
+                  <td>${it.linea || ''}</td>
+                  <td>${it.id_del_articulo || ''}</td>
+                  <td>${it.nombre || ''}</td>
+                  <td>${Number(it.cantidad || 0)}</td>
+                  <td>Q ${Number(it.precio_unitario || 0).toFixed(2)}</td>
+                  <td>Q ${Number(it.subtotal || 0).toFixed(2)}</td>
+                </tr>
+              `;
+            });
+            html += `
+                  </tbody>
+                </table>
+              </div>
+            `;
+          } else {
+            html += `<p class="venta-sin-detalle">Sin detalle de artículos para esta venta.</p>`;
+          }
+
+          html += `</details>`;
+        });
       } else {
         html += `<p>No hay ventas registradas para esta fecha.</p>`;
       }
 
+      html += `</details>`; // cierra "Ver detalle de ventas"
+
       respResumenVentas.innerHTML = html;
 
-      // --- Dibujar pies simples (mismo JS de antes) ---
-      const totalContado = Number(t.contado || 0);
-      const totalCredito = Number(t.credito || 0);
-      const totalCosto   = Number(t.costo_estimado || 0);
-      const totalGan     = Number(t.ganancia_estimada || 0);
+      // ---------- Dibujar gráficas ----------
+      const cont1 = document.getElementById('chartContadoCredito');
+      const cont2 = document.getElementById('chartCostoGanancia');
 
-      drawSimplePie(
-        respResumenVentas.querySelector('[data-chart="contado-credito"]'),
-        [
-          { label:'Contado', valor: totalContado },
-          { label:'Crédito', valor: totalCredito }
-        ]
-      );
+      if (cont1) {
+        drawSimplePie(cont1, [
+          { label: 'Contado', valor: totContado },
+          { label: 'Crédito', valor: totCredito }
+        ]);
+      }
 
-      drawSimplePie(
-        respResumenVentas.querySelector('[data-chart="costo-ganancia"]'),
-        [
-          { label:'Costo', valor: totalCosto },
-          { label:'Ganancia', valor: totalGan }
-        ]
-      );
+      if (cont2) {
+        drawSimplePie(cont2, [
+          { label: 'Costo',    valor: totCosto },
+          { label: 'Ganancia', valor: totGan }
+        ]);
+      }
 
     } catch (err) {
       showResp(respResumenVentas, { error: String(err) });
