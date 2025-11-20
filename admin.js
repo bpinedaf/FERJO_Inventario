@@ -699,147 +699,33 @@ formVenta.addEventListener('submit', async (e)=>{
 });
 
 // ===================================================
-//   RESUMEN DE VENTAS DEL DÍA (sales_summary + Chart.js)
+//        RESUMEN DE VENTAS DEL DÍA (sales_summary)
 // ===================================================
-
 const formResumenVentas   = document.getElementById('formResumenVentas');
-const respResumenVentas   = document.getElementById('respResumenVentas');
+const respResumenVentas   = document.getElementById('respResumenVentas'); // debug
 const totalesDiaBox       = document.getElementById('totales-dia');
 const detalleVentasBody   = document.getElementById('detalle-ventas-body');
-const canvasChartVentas   = document.getElementById('chart-ventas');
-const canvasChartMargen   = document.getElementById('chart-margen');
+const chartsSection       = document.getElementById('charts-section');
+const detalleSection      = document.getElementById('detalle-section');
 
-let chartVentas = null;
-let chartMargen = null;
+// Nuevos: detalle de una venta
+const ventaDetalleWrapper = document.getElementById('venta-detalle-wrapper');
+const ventaDetalleBody    = document.getElementById('venta-detalle-body');
+const ventaDetalleTitulo  = document.getElementById('venta-detalle-titulo');
 
-const DEBUG_RESUMEN = (localStorage.getItem('FERJO_DEBUG') === '1');
+// Cache para poder mostrar detalle al hacer clic en la tabla
+let ventasResumenCache = [];
 
-// -------- Helpers de render --------
-function renderTotalesDia(out) {
-  if (!totalesDiaBox) return;
-  const t = out.totales || {};
+// Gráficas (Chart.js)
+let chartVentas  = null;
+let chartMargen  = null;
 
-  const totalDia   = Number(t.total_dia || 0);
-  const contado    = Number(t.contado || 0);
-  const credito    = Number(t.credito || 0);
-  const pagadoHoy  = Number(t.pagado_hoy || 0);
-  const saldoPend  = Number(t.saldo_pendiente || 0);
-  const costoEst   = Number(t.costo_estimado || 0);
-  const ganancia   = Number(t.ganancia_estimada || 0);
-
-  totalesDiaBox.innerHTML = `
-    <h4>Totales del día (${out.fecha})</h4>
-    <div class="totales-grid">
-      <div><strong>Total del día:</strong> Q ${totalDia.toFixed(2)}</div>
-      <div><strong>Contado:</strong> Q ${contado.toFixed(2)}</div>
-      <div><strong>Crédito:</strong> Q ${credito.toFixed(2)}</div>
-      <div><strong>Pagado hoy:</strong> Q ${pagadoHoy.toFixed(2)}</div>
-      <div><strong>Saldo pendiente:</strong> Q ${saldoPend.toFixed(2)}</div>
-      <div><strong>Costo estimado:</strong> Q ${costoEst.toFixed(2)}</div>
-      <div><strong>Ganancia estimada:</strong> Q ${ganancia.toFixed(2)}</div>
-    </div>
-  `;
-}
-
-function renderDetalleVentas(detalle) {
-  if (!detalleVentasBody) return;
-  detalleVentasBody.innerHTML = '';
-
-  if (!detalle || !detalle.length) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td colspan="6" style="text-align:center; padding:8px;">
-        No hay ventas registradas para esta fecha.
-      </td>
-    `;
-    detalleVentasBody.appendChild(tr);
-    return;
-  }
-
-  detalle.forEach(v => {
-    const tr = document.createElement('tr');
-    const tipo = (v.tipo_venta || '').toLowerCase();
-    const claseTipo = tipo === 'credito' ? 'badge-credito' : 'badge-contado';
-
-    tr.innerHTML = `
-      <td>${v.hora || ''}</td>
-      <td>${v.cliente || ''}</td>
-      <td>
-        <span class="${claseTipo}">
-          ${tipo || ''}
-        </span>
-      </td>
-      <td style="text-align:right;">Q ${Number(v.total_neto || 0).toFixed(2)}</td>
-      <td style="text-align:right;">Q ${Number(v.pagado || 0).toFixed(2)}</td>
-      <td style="text-align:right;">Q ${Number(v.saldo || 0).toFixed(2)}</td>
-    `;
-    detalleVentasBody.appendChild(tr);
-  });
-}
-
-function renderCharts(totales) {
-  const t = totales || {};
-  const contado  = Number(t.contado || 0);
-  const credito  = Number(t.credito || 0);
-  const costo    = Number(t.costo_estimado || 0);
-  const ganancia = Number(t.ganancia_estimada || 0);
-
-  // --- Chart 1: Contado vs Crédito ---
-  if (canvasChartVentas && typeof Chart !== 'undefined') {
-    if (chartVentas) chartVentas.destroy();
-
-    chartVentas = new Chart(canvasChartVentas, {
-      type: 'doughnut',
-      data: {
-        labels: ['Contado', 'Crédito'],
-        datasets: [{
-          data: [contado, credito]
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: 'bottom' },
-          title: {
-            display: false
-          }
-        },
-        cutout: '60%'
-      }
-    });
-  }
-
-  // --- Chart 2: Costo vs Ganancia ---
-  if (canvasChartMargen && typeof Chart !== 'undefined') {
-    if (chartMargen) chartMargen.destroy();
-
-    chartMargen = new Chart(canvasChartMargen, {
-      type: 'doughnut',
-      data: {
-        labels: ['Costo', 'Ganancia'],
-        datasets: [{
-          data: [costo, ganancia]
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: 'bottom' },
-          title: {
-            display: false
-          }
-        },
-        cutout: '60%'
-      }
-    });
-  }
-}
-
-// -------- Manejador del formulario --------
 if (formResumenVentas && respResumenVentas) {
   formResumenVentas.addEventListener('submit', async (e) => {
     e.preventDefault();
-    respResumenVentas.textContent = '';
+    respResumenVentas.textContent = ''; // debug limpio
+    if (ventaDetalleWrapper) ventaDetalleWrapper.style.display = 'none';
+    ventasResumenCache = [];
 
     const fd    = new FormData(formResumenVentas);
     const fecha = (fd.get('fecha') || '').trim();
@@ -849,7 +735,10 @@ if (formResumenVentas && respResumenVentas) {
       return;
     }
 
-    appendResp(respResumenVentas, { debug: 'GET sales_summary', fecha });
+    appendResp(respResumenVentas, {
+      debug: 'GET sales_summary',
+      fecha
+    });
 
     try {
       const out = await getWithToken('sales_summary', { fecha });
@@ -859,25 +748,165 @@ if (formResumenVentas && respResumenVentas) {
         return;
       }
 
-      // 1) Totales
-      renderTotalesDia(out);
+      const t       = out.totales || {};
+      const detalle = out.detalle_ventas || [];
+      ventasResumenCache = detalle;
 
-      // 2) Detalle de ventas (tabla)
-      renderDetalleVentas(out.detalle_ventas || []);
+      const totContado = Number(t.contado || 0);
+      const totCredito = Number(t.credito || 0);
+      const totCosto   = Number(t.costo_estimado || 0);
+      const totGan     = Number(t.ganancia_estimada || 0);
 
-      // 3) Gráficas
-      renderCharts(out.totales || {});
-
-      // 4) Debug opcional
-      if (DEBUG_RESUMEN) {
-        respResumenVentas.textContent += '\n\n[DEBUG]\n' +
-          JSON.stringify(out, null, 2);
-      } else {
-        respResumenVentas.textContent = '';
+      // ---------- Totales del día (texto) ----------
+      if (totalesDiaBox) {
+        totalesDiaBox.innerHTML = `
+          <h4>Totales del día (${out.fecha})</h4>
+          <p><strong>Total del día:</strong> Q ${Number(t.total_dia || 0).toFixed(2)}</p>
+          <p><strong>Contado:</strong> Q ${totContado.toFixed(2)}</p>
+          <p><strong>Crédito:</strong> Q ${totCredito.toFixed(2)}</p>
+          <p><strong>Pagado hoy:</strong> Q ${Number(t.pagado_hoy || 0).toFixed(2)}</p>
+          <p><strong>Saldo pendiente:</strong> Q ${Number(t.saldo_pendiente || 0).toFixed(2)}</p>
+          <p><strong>Costo estimado:</strong> Q ${totCosto.toFixed(2)}</p>
+          <p><strong>Ganancia estimada:</strong> Q ${totGan.toFixed(2)}</p>
+        `;
       }
+
+      // ---------- Gráficas (Chart.js) ----------
+      const canvasVentas = document.getElementById('chart-ventas');
+      const canvasMargen = document.getElementById('chart-margen');
+
+      if (canvasVentas && canvasVentas.getContext) {
+        const ctxV = canvasVentas.getContext('2d');
+        if (chartVentas) chartVentas.destroy();
+        chartVentas = new Chart(ctxV, {
+          type: 'doughnut',
+          data: {
+            labels: ['Contado', 'Crédito'],
+            datasets: [{
+              data: [totContado, totCredito],
+              // Chart.js asignará colores por defecto
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'bottom' }
+            }
+          }
+        });
+      }
+
+      if (canvasMargen && canvasMargen.getContext) {
+        const ctxM = canvasMargen.getContext('2d');
+        if (chartMargen) chartMargen.destroy();
+        chartMargen = new Chart(ctxM, {
+          type: 'doughnut',
+          data: {
+            labels: ['Costo', 'Ganancia'],
+            datasets: [{
+              data: [totCosto, totGan]
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'bottom' }
+            }
+          }
+        });
+      }
+
+      // ---------- Detalle de ventas (tabla principal) ----------
+      if (detalleVentasBody) {
+        detalleVentasBody.innerHTML = '';
+
+        if (!detalle.length) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td colspan="6" style="text-align:center;">No hay ventas registradas para esta fecha.</td>
+          `;
+          detalleVentasBody.appendChild(tr);
+        } else {
+          detalle.forEach((v, idx) => {
+            const tr = document.createElement('tr');
+            tr.dataset.index = String(idx); // para click
+            const tipo = (v.tipo_venta || '').toLowerCase();
+
+            tr.innerHTML = `
+              <td>${v.hora || ''}</td>
+              <td>${v.cliente || ''}</td>
+              <td>
+                <span class="venta-tipo ${
+                  tipo === 'credito' ? 'badge-credito' : 'badge-contado'
+                }">
+                  ${v.tipo_venta || ''}
+                </span>
+              </td>
+              <td style="text-align:right;">Q ${Number(v.total_neto || 0).toFixed(2)}</td>
+              <td style="text-align:right;">Q ${Number(v.pagado || 0).toFixed(2)}</td>
+              <td style="text-align:right;">Q ${Number(v.saldo || 0).toFixed(2)}</td>
+            `;
+            detalleVentasBody.appendChild(tr);
+          });
+        }
+      }
+
+      // Abrimos automáticamente la sección de totales y detalle
+      if (chartsSection)  chartsSection.open  = false; // el usuario decide
+      if (detalleSection) detalleSection.open = true;
 
     } catch (err) {
       showResp(respResumenVentas, { error: String(err) });
     }
+  });
+}
+
+// ---------- Click en una venta para ver su detalle de artículos ----------
+if (detalleVentasBody && ventaDetalleBody && ventaDetalleWrapper) {
+  detalleVentasBody.addEventListener('click', (ev) => {
+    const tr = ev.target.closest('tr[data-index]');
+    if (!tr) return;
+
+    const idx = Number(tr.dataset.index || '-1');
+    if (isNaN(idx) || idx < 0 || idx >= ventasResumenCache.length) return;
+
+    const venta = ventasResumenCache[idx];
+    const items = Array.isArray(venta.detalle_items) ? venta.detalle_items : [];
+
+    // Título
+    if (ventaDetalleTitulo) {
+      ventaDetalleTitulo.textContent =
+        `Detalle de la venta ${venta.id_venta || ''} — ${venta.cliente || ''}`;
+    }
+
+    // Cuerpo
+    ventaDetalleBody.innerHTML = '';
+
+    if (!items.length) {
+      const trMsg = document.createElement('tr');
+      trMsg.innerHTML = `
+        <td colspan="6" style="text-align:center;">
+          Esta venta no tiene detalle de artículos registrado.
+        </td>
+      `;
+      ventaDetalleBody.appendChild(trMsg);
+    } else {
+      items.forEach(it => {
+        const trItem = document.createElement('tr');
+        trItem.innerHTML = `
+          <td>${it.linea || ''}</td>
+          <td>${it.id_del_articulo || ''}</td>
+          <td>${it.nombre || ''}</td>
+          <td>${Number(it.cantidad || 0)}</td>
+          <td>Q ${Number(it.precio_unitario || 0).toFixed(2)}</td>
+          <td>Q ${Number(it.subtotal || 0).toFixed(2)}</td>
+        `;
+        ventaDetalleBody.appendChild(trItem);
+      });
+    }
+
+    // Mostramos el bloque y nos aseguramos de que la sección esté abierta
+    ventaDetalleWrapper.style.display = 'block';
+    if (detalleSection) detalleSection.open = true;
   });
 }
