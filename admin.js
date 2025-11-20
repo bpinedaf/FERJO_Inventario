@@ -702,163 +702,166 @@ formVenta.addEventListener('submit', async (e)=>{
 // ===================================================
 //        RESUMEN DE VENTAS DEL DÍA (sales_summary)
 // ===================================================
-const formResumenVentas   = document.getElementById('formResumenVentas');
-const respResumenVentas   = document.getElementById('respResumenVentas');
-const totalesDiaDiv       = document.getElementById('totales-dia');
-const detalleVentasBody   = document.getElementById('detalle-ventas-body');
-const chartsSection       = document.getElementById('charts-section');
-const detalleSection      = document.getElementById('detalle-section');
+const formResumenVentas = document.getElementById('formResumenVentas');
+const respResumenVentas = document.getElementById('respResumenVentas');
 
-let chartVentasPie = null;
-let chartMargenPie = null;
-
-function renderSalesSummary(out){
-  if (!out || !out.ok){
-    if (respResumenVentas) showResp(respResumenVentas, out || { error:'Respuesta inválida' });
-    return;
-  }
-
-  const t       = out.totales || {};
-  const detalle = out.detalle_ventas || [];
-  const fecha   = out.fecha || '';
-
-  // ---------- Totales ----------
-  if (totalesDiaDiv){
-    totalesDiaDiv.innerHTML = `
-      <h4>Totales del día (${fecha})</h4>
-      <ul>
-        <li><strong>Total del día:</strong> Q ${Number(t.total_dia || 0).toFixed(2)}</li>
-        <li><strong>Contado:</strong> Q ${Number(t.contado || 0).toFixed(2)}</li>
-        <li><strong>Crédito:</strong> Q ${Number(t.credito || 0).toFixed(2)}</li>
-        <li><strong>Pagado hoy:</strong> Q ${Number(t.pagado_hoy || 0).toFixed(2)}</li>
-        <li><strong>Saldo pendiente:</strong> Q ${Number(t.saldo_pendiente || 0).toFixed(2)}</li>
-        <li><strong>Costo estimado:</strong> Q ${Number(t.costo_estimado || 0).toFixed(2)}</li>
-        <li><strong>Ganancia estimada:</strong> Q ${Number(t.ganancia_estimada || 0).toFixed(2)}</li>
-      </ul>
-    `;
-  }
-
-  // ---------- Detalle (tabla) ----------
-  if (detalleVentasBody){
-    detalleVentasBody.innerHTML = '';
-    if (!detalle.length){
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td colspan="6" style="text-align:center;">Sin ventas para esta fecha.</td>`;
-      detalleVentasBody.appendChild(tr);
-    } else {
-      detalle.forEach(v=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${v.hora || ''}</td>
-          <td>${v.cliente || ''}</td>
-          <td>${v.tipo_venta || ''}</td>
-          <td style="text-align:right;">Q ${Number(v.total_neto || 0).toFixed(2)}</td>
-          <td style="text-align:right;">Q ${Number(v.pagado || 0).toFixed(2)}</td>
-          <td style="text-align:right;">Q ${Number(v.saldo || 0).toFixed(2)}</td>
-        `;
-        detalleVentasBody.appendChild(tr);
-      });
-    }
-  }
-
-  // Abre por defecto el detalle cuando hay filas
-  if (detalleSection){
-    detalleSection.open = !!detalle.length;
-  }
-
-  // ---------- Gráficas ----------
-  if (typeof Chart === 'undefined') {
-    // Si por alguna razón Chart.js no cargó, no rompemos nada
-    return;
-  }
-
-  const contado = Number(t.contado || 0);
-  const credito = Number(t.credito || 0);
-
-  const costo   = Number(t.costo_estimado || 0);
-  const ganancia = Number(t.ganancia_estimada || 0);
-
-  const ctxVentas = document.getElementById('chart-ventas');
-  const ctxMargen = document.getElementById('chart-margen');
-
-  // Pie: contado vs crédito
-  if (ctxVentas){
-    if (chartVentasPie) chartVentasPie.destroy();
-    chartVentasPie = new Chart(ctxVentas, {
-      type: 'pie',
-      data: {
-        labels: ['Contado', 'Crédito'],
-        datasets: [{
-          data: [contado, credito]
-        }]
-      },
-      options: {
-        plugins: {
-          legend: { position: 'bottom' },
-          title:  { display: false }
-        }
-      }
-    });
-  }
-
-  // Pie: costo vs ganancia (margen)
-  if (ctxMargen){
-    if (chartMargenPie) chartMargenPie.destroy();
-    chartMargenPie = new Chart(ctxMargen, {
-      type: 'pie',
-      data: {
-        labels: ['Costo', 'Ganancia'],
-        datasets: [{
-          data: [costo, ganancia]
-        }]
-      },
-      options: {
-        plugins: {
-          legend: { position: 'bottom' },
-          title:  { display: false }
-        }
-      }
-    });
-  }
-
-  if (chartsSection){
-    chartsSection.open = true;   // las mostramos abiertas al ver el resumen
-  }
-
-  // Debug opcional
-  const DEBUG = (localStorage.getItem('FERJO_DEBUG') === '1');
-  if (respResumenVentas){
-    if (DEBUG){
-      showResp(respResumenVentas, out);
-    } else {
-      respResumenVentas.textContent = '';
-    }
-  }
-}
-
-// Listener del formulario de resumen
-if (formResumenVentas){
-  formResumenVentas.addEventListener('submit', async (e)=>{
+if (formResumenVentas && respResumenVentas) {
+  formResumenVentas.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (respResumenVentas) respResumenVentas.textContent = '';
+    respResumenVentas.textContent = '';
 
     const fd    = new FormData(formResumenVentas);
-    const fecha = (fd.get('fecha') || '').trim();
+    const fecha = (fd.get('fecha') || '').trim();   // name="fecha" en el input
 
-    if (!fecha){
+    if (!fecha) {
       alert('Selecciona una fecha.');
       return;
     }
 
-    if (respResumenVentas){
-      appendResp(respResumenVentas, { debug:'GET sales_summary', fecha });
-    }
+    appendResp(respResumenVentas, {
+      debug: 'GET sales_summary',
+      fecha
+    });
 
-    try{
+    try {
       const out = await getWithToken('sales_summary', { fecha });
-      renderSalesSummary(out);
-    }catch(err){
-      if (respResumenVentas) showResp(respResumenVentas, { error:String(err) });
+
+      if (!out || !out.ok) {
+        showResp(respResumenVentas, out || { error: 'Sin respuesta' });
+        return;
+      }
+
+      const t       = out.totales || {};
+      const detalle = out.detalle_ventas || [];
+
+      let html = '';
+
+      // --- Totales del día en sección colapsable ---
+      html += `
+        <details class="summary-block" open>
+          <summary>Totales del día (${out.fecha})</summary>
+          <ul>
+            <li><strong>Total del día:</strong> Q ${Number(t.total_dia        || 0).toFixed(2)}</li>
+            <li><strong>Contado:</strong> Q ${Number(t.contado               || 0).toFixed(2)}</li>
+            <li><strong>Crédito:</strong> Q ${Number(t.credito               || 0).toFixed(2)}</li>
+            <li><strong>Pagado hoy:</strong> Q ${Number(t.pagado_hoy         || 0).toFixed(2)}</li>
+            <li><strong>Saldo pendiente:</strong> Q ${Number(t.saldo_pendiente || 0).toFixed(2)}</li>
+            <li><strong>Costo estimado:</strong> Q ${Number(t.costo_estimado || 0).toFixed(2)}</li>
+            <li><strong>Ganancia estimada:</strong> Q ${Number(t.ganancia_estimada || 0).toFixed(2)}</li>
+          </ul>
+        </details>
+      `;
+
+      // --- Gráficas en sección colapsable (igual que antes) ---
+      html += `
+        <details class="summary-block" open>
+          <summary>Ver gráficas del día</summary>
+          <div class="charts-row">
+            <div class="chart-card">
+              <h5>Ventas contado vs crédito</h5>
+              <div class="pie-chart" data-chart="contado-credito"></div>
+            </div>
+            <div class="chart-card">
+              <h5>Costo vs ganancia estimada</h5>
+              <div class="pie-chart" data-chart="costo-ganancia"></div>
+            </div>
+          </div>
+        </details>
+      `;
+
+      // --- Detalle de ventas: cada venta colapsable ---
+      if (detalle.length) {
+        html += `
+          <details class="summary-block">
+            <summary>Ver detalle de ventas</summary>
+            <div class="ventas-list">
+        `;
+
+        detalle.forEach(v => {
+          const items = Array.isArray(v.items) ? v.items : [];
+
+          html += `
+            <details class="venta-item">
+              <summary>
+                <div class="venta-summary-row">
+                  <span class="venta-id">${v.id_venta || ''}</span>
+                  <span class="venta-cliente">${v.cliente || ''}</span>
+                  <span class="venta-tipo">${v.tipo_venta || ''}</span>
+                  <span class="venta-total">Total: Q ${Number(v.total_neto || 0).toFixed(2)}</span>
+                  <span class="venta-pagado">Pagado: Q ${Number(v.pagado || 0).toFixed(2)}</span>
+                  <span class="venta-saldo">Saldo: Q ${Number(v.saldo || 0).toFixed(2)}</span>
+                </div>
+              </summary>
+              ${
+                items.length
+                  ? `
+                    <div class="table-wrapper">
+                      <table class="tabla tabla-venta-detalle">
+                        <thead>
+                          <tr>
+                            <th>Línea</th>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th>Cant.</th>
+                            <th>Precio unit.</th>
+                            <th>Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${items.map(it => `
+                            <tr>
+                              <td>${it.linea || ''}</td>
+                              <td>${it.id_del_articulo || ''}</td>
+                              <td>${it.nombre || ''}</td>
+                              <td>${Number(it.cantidad || 0)}</td>
+                              <td>Q ${Number(it.precio_unitario || 0).toFixed(2)}</td>
+                              <td>Q ${Number(it.subtotal || 0).toFixed(2)}</td>
+                            </tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+                    </div>
+                  `
+                  : `<p class="help">Sin detalle de artículos para esta venta.</p>`
+              }
+            </details>
+          `;
+        });
+
+        html += `
+            </div>
+          </details>
+        `;
+      } else {
+        html += `<p>No hay ventas registradas para esta fecha.</p>`;
+      }
+
+      respResumenVentas.innerHTML = html;
+
+      // --- Dibujar pies simples (mismo JS de antes) ---
+      const totalContado = Number(t.contado || 0);
+      const totalCredito = Number(t.credito || 0);
+      const totalCosto   = Number(t.costo_estimado || 0);
+      const totalGan     = Number(t.ganancia_estimada || 0);
+
+      drawSimplePie(
+        respResumenVentas.querySelector('[data-chart="contado-credito"]'),
+        [
+          { label:'Contado', valor: totalContado },
+          { label:'Crédito', valor: totalCredito }
+        ]
+      );
+
+      drawSimplePie(
+        respResumenVentas.querySelector('[data-chart="costo-ganancia"]'),
+        [
+          { label:'Costo', valor: totalCosto },
+          { label:'Ganancia', valor: totalGan }
+        ]
+      );
+
+    } catch (err) {
+      showResp(respResumenVentas, { error: String(err) });
     }
   });
 }
