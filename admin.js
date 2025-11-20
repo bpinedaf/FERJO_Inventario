@@ -84,14 +84,12 @@ async function getWithToken(path, params={}){
 
 // Helper para POST JSON (ventas) SIN disparar preflight
 async function postJSONWithToken(path, payload = {}) {
-  // Usamos apiUrlAuth para agregar path y token en la querystring
-  const url  = apiUrlAuth(path);
-  const body = JSON.stringify(payload);  // el token va en la URL, no en el body
+  const url  = apiUrlAuth(path);   // token en query
+  const body = JSON.stringify(payload);  // sin headers personalizados
 
   try {
     const res = await fetch(url, {
       method: 'POST',
-      // 👇 Sin headers personalizados: fetch usa text/plain por defecto
       body
     });
     const txt = await res.text();
@@ -334,13 +332,12 @@ let ventaItems = [];
 const formVenta           = document.getElementById('formVenta');
 const respVenta           = document.getElementById('respVenta');
 const respCliente         = document.getElementById('respCliente');
-const inputIdCliente      = formVenta.querySelector('[name="id_cliente"]');  // 🔹 Nuevo
+const inputIdCliente      = formVenta.querySelector('[name="id_cliente"]');
 const ventaRespProducto   = document.getElementById('ventaRespProducto');
 const ventaItemsBody      = document.getElementById('ventaItemsBody');
 
 const btnVentaVerComprobante = document.getElementById('btnVentaVerComprobante');
 let   ventaDocUrlUltima       = '';
-// Al inicio, el botón debe estar deshabilitado hasta que haya una venta
 if (btnVentaVerComprobante) {
   btnVentaVerComprobante.disabled = true;
 }
@@ -414,12 +411,10 @@ function resetVenta(){
   inputPagoInicialForma.value = '';
   selectPlazoDias.value       = '0';
   formVenta.querySelector('[name="notas"]').value = '';
-  // OJO: aquí *ya no* tocamos ventaDocUrlUltima ni el estado del botón,
-  // porque queremos seguir pudiendo ver el último comprobante generado.
+  // No tocamos ventaDocUrlUltima para seguir viendo el último comprobante
 }
 
-
-// --- Aquí va el bloque d) ---
+// Ver comprobante de la última venta
 if (btnVentaVerComprobante) {
   btnVentaVerComprobante.addEventListener('click', ()=>{
     if (ventaDocUrlUltima) {
@@ -448,7 +443,6 @@ async function buscarClientePorId(){
   respCliente.textContent = '';
 
   if (!id){
-    // Si está vacío, no buscamos
     return;
   }
 
@@ -458,42 +452,12 @@ async function buscarClientePorId(){
 
   if (!data || !data.ok || !data.customer){
     showResp(respCliente, data || { error:'Cliente no encontrado' });
-    // Dejamos el formulario en blanco para que se registren los datos
     rellenarCliente({ id_cliente: id, nombre:'', telefono:'', email:'' });
     return;
   }
 
   rellenarCliente(data.customer);
-  showResp(respCliente, data);  // si quieres ver el JSON devuelto
-}
-
-// --- Búsqueda de producto por código ---
-async function buscarProductoVenta(){
-  const id = (inputVentaCodigo.value || '').trim();
-  if (!id){
-    alert('Ingresa un código de artículo');
-    return;
-  }
-  ventaRespProducto.textContent = 'Buscando producto...';
-
-  const data = await getWithToken('product_fetch', { id });
-  if (!data || !data.ok || !data.product){
-    ventaRespProducto.textContent = '❌ Producto no encontrado';
-    limpiarProductoActual();
-    return;
-  }
-
-  const p = data.product;
-  const precio = Number(p.precio_de_venta || 0) || 0;
-  const stock  = Number(p.cantidad || 0) || 0;
-
-  inputVentaNombre.value    = p.nombre || '';
-  inputVentaPrecioSug.value = precio ? precio.toFixed(2) : '';
-  inputVentaPrecioUni.value = precio ? precio.toFixed(2) : '';
-  inputVentaStock.value     = stock;
-
-  ventaRespProducto.textContent =
-    `✅ ${p.nombre} • Precio sugerido: Q ${precio.toFixed(2)} • Stock: ${stock}`;
+  showResp(respCliente, data);
 }
 
 // --- Búsqueda de producto por código ---
@@ -545,7 +509,7 @@ document.getElementById('btnVentaAgregarItem').addEventListener('click', ()=>{
   const cant   = Number(inputVentaCantidad.value || 0);
   const precioSug = Number(inputVentaPrecioSug.value || 0);
   const precioUni = Number(inputVentaPrecioUni.value || 0);
-  const stockActual = Number(inputVentaStock.value || 0);   // 👈 stock que ya tenemos en el campo
+  const stockActual = Number(inputVentaStock.value || 0);
 
   if (!codigo){
     alert('Ingresa el código del artículo y búscalo primero.');
@@ -564,8 +528,7 @@ document.getElementById('btnVentaAgregarItem').addEventListener('click', ()=>{
     return;
   }
 
-  // --- Control de stock en el carrito ---
-  // Cuántas unidades de este código ya están en la venta actual
+  // Control de stock en el carrito
   let yaEnCarrito = 0;
   ventaItems.forEach(it => {
     if (it.id_del_articulo === codigo) {
@@ -585,22 +548,19 @@ document.getElementById('btnVentaAgregarItem').addEventListener('click', ()=>{
     return;
   }
 
-  // Si pasa todas las validaciones, agregamos al carrito
   ventaItems.push({
     id_del_articulo: codigo,
     nombre,
     cantidad: cant,
-    precio_sugerido: precioSug || precioUni, // fallback
+    precio_sugerido: precioSug || precioUni,
     precio_unitario: precioUni
   });
 
   renderVentaItems();
   recomputeVentaTotals();
 
-  // (Opcional) mostrar el stock restante en el campo
   inputVentaStock.value = disponible - cant;
 
-  // Dejamos listo para el siguiente producto
   inputVentaCodigo.value = '';
   limpiarProductoActual();
   inputVentaCodigo.focus();
@@ -640,15 +600,14 @@ document.getElementById('btnVentaGuardarCliente').addEventListener('click', asyn
   const out = await postWithToken('customer_upsert', payload);
   showResp(respCliente, out);
 
-  // Si el backend devuelve id_cliente, lo rellenamos
   if (out && out.ok && out.id_cliente){
     const idInput = formVenta.querySelector('[name="id_cliente"]');
     if (idInput) idInput.value = out.id_cliente;
   }
 });
-// --- Buscar cliente al ingresar el ID (NIT) ---
+
+// Buscar cliente al usar el campo ID
 if (inputIdCliente){
-  // Enter dentro del campo ID cliente
   inputIdCliente.addEventListener('keydown', (ev)=>{
     if (ev.key === 'Enter'){
       ev.preventDefault();
@@ -656,7 +615,6 @@ if (inputIdCliente){
     }
   });
 
-  // También al salir del campo (blur)
   inputIdCliente.addEventListener('blur', ()=>{
     buscarClientePorId();
   });
@@ -716,74 +674,59 @@ formVenta.addEventListener('submit', async (e)=>{
     items: payload.items.length
   }});
 
-const out = await postJSONWithToken('sale_register', payload);
-showResp(respVenta, out);
+  const out = await postJSONWithToken('sale_register', payload);
+  showResp(respVenta, out);
 
-if (out && out.ok){
-  // Guardar doc_url de la venta recién creada
-  ventaDocUrlUltima = out.doc_url || '';
+  if (out && out.ok){
+    ventaDocUrlUltima = out.doc_url || '';
 
-  if (btnVentaVerComprobante) {
-    btnVentaVerComprobante.disabled = !ventaDocUrlUltima;
+    if (btnVentaVerComprobante) {
+      btnVentaVerComprobante.disabled = !ventaDocUrlUltima;
+    }
+
+    alert(
+      `Venta registrada correctamente.\n` +
+      `ID: ${out.id_venta}\n` +
+      `Total: Q ${Number(out.total_neto || 0).toFixed(2)}`
+    );
+
+    if (ventaDocUrlUltima) {
+      window.open(ventaDocUrlUltima, '_blank');
+    }
+
+    resetVenta();
   }
-
-  alert(
-    `Venta registrada correctamente.\n` +
-    `ID: ${out.id_venta}\n` +
-    `Total: Q ${Number(out.total_neto || 0).toFixed(2)}`
-  );
-
-  // Opcional: abrir el comprobante inmediatamente si existe
-  if (ventaDocUrlUltima) {
-    window.open(ventaDocUrlUltima, '_blank');
-  }
-
-  resetVenta();
-}
-
 });
+
+
 // ===================================================
 //        RESUMEN DE VENTAS DEL DÍA (sales_summary)
 // ===================================================
-const formResumenVentas = document.getElementById('formResumenVentas');
-const respResumenVentas = document.getElementById('respResumenVentas');
+const formResumenVentas   = document.getElementById('formResumenVentas');
+const respResumenVentas   = document.getElementById('respResumenVentas');
+const totalesDiaDiv       = document.getElementById('totales-dia');
+const detalleVentasBody   = document.getElementById('detalle-ventas-body');
+const chartsSection       = document.getElementById('charts-section');
+const detalleSection      = document.getElementById('detalle-section');
 
-if (formResumenVentas && respResumenVentas) {
-  formResumenVentas.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    respResumenVentas.textContent = '';
+let chartVentasPie = null;
+let chartMargenPie = null;
 
-    const fd    = new FormData(formResumenVentas);
-    const fecha = (fd.get('fecha') || '').trim();   // name="fecha" en el input
+function renderSalesSummary(out){
+  if (!out || !out.ok){
+    if (respResumenVentas) showResp(respResumenVentas, out || { error:'Respuesta inválida' });
+    return;
+  }
 
-    if (!fecha) {
-      alert('Selecciona una fecha.');
-      return;
-    }
+  const t       = out.totales || {};
+  const detalle = out.detalle_ventas || [];
+  const fecha   = out.fecha || '';
 
-    appendResp(respResumenVentas, {
-      debug: 'GET sales_summary',
-      fecha
-    });
-
-    try {
-      // Llamamos al backend por GET, con token
-      const out = await getWithToken('sales_summary', { fecha });
-
-      // Si algo salió mal, mostramos el JSON crudo
-      if (!out || !out.ok) {
-        showResp(respResumenVentas, out || { error: 'Sin respuesta' });
-        return;
-      }
-
-      // --- Construimos la vista bonita ---
-      const t = out.totales || {};
-      const detalle = out.detalle_ventas || [];
-
-      let html = '';
-
-      html += `<h4>Totales del día (${out.fecha})</h4>`;
-      html += `<ul>
+  // ---------- Totales ----------
+  if (totalesDiaDiv){
+    totalesDiaDiv.innerHTML = `
+      <h4>Totales del día (${fecha})</h4>
+      <ul>
         <li><strong>Total del día:</strong> Q ${Number(t.total_dia || 0).toFixed(2)}</li>
         <li><strong>Contado:</strong> Q ${Number(t.contado || 0).toFixed(2)}</li>
         <li><strong>Crédito:</strong> Q ${Number(t.credito || 0).toFixed(2)}</li>
@@ -791,47 +734,131 @@ if (formResumenVentas && respResumenVentas) {
         <li><strong>Saldo pendiente:</strong> Q ${Number(t.saldo_pendiente || 0).toFixed(2)}</li>
         <li><strong>Costo estimado:</strong> Q ${Number(t.costo_estimado || 0).toFixed(2)}</li>
         <li><strong>Ganancia estimada:</strong> Q ${Number(t.ganancia_estimada || 0).toFixed(2)}</li>
-      </ul>`;
+      </ul>
+    `;
+  }
 
-      if (detalle.length) {
-        html += `<h4>Detalle de ventas</h4>`;
-        html += `<div class="table-wrapper">
-          <table class="tabla">
-            <thead>
-              <tr>
-                <th>Hora</th>
-                <th>Cliente</th>
-                <th>Tipo</th>
-                <th>Total neto</th>
-                <th>Pagado</th>
-                <th>Saldo</th>
-              </tr>
-            </thead>
-            <tbody>
+  // ---------- Detalle (tabla) ----------
+  if (detalleVentasBody){
+    detalleVentasBody.innerHTML = '';
+    if (!detalle.length){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="6" style="text-align:center;">Sin ventas para esta fecha.</td>`;
+      detalleVentasBody.appendChild(tr);
+    } else {
+      detalle.forEach(v=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${v.hora || ''}</td>
+          <td>${v.cliente || ''}</td>
+          <td>${v.tipo_venta || ''}</td>
+          <td style="text-align:right;">Q ${Number(v.total_neto || 0).toFixed(2)}</td>
+          <td style="text-align:right;">Q ${Number(v.pagado || 0).toFixed(2)}</td>
+          <td style="text-align:right;">Q ${Number(v.saldo || 0).toFixed(2)}</td>
         `;
+        detalleVentasBody.appendChild(tr);
+      });
+    }
+  }
 
-        detalle.forEach(v => {
-          html += `
-            <tr>
-              <td>${v.hora || ''}</td>
-              <td>${v.cliente || ''}</td>
-              <td>${v.tipo_venta || ''}</td>
-              <td>Q ${Number(v.total_neto || 0).toFixed(2)}</td>
-              <td>Q ${Number(v.pagado || 0).toFixed(2)}</td>
-              <td>Q ${Number(v.saldo || 0).toFixed(2)}</td>
-            </tr>
-          `;
-        });
+  // Abre por defecto el detalle cuando hay filas
+  if (detalleSection){
+    detalleSection.open = !!detalle.length;
+  }
 
-        html += `</tbody></table></div>`;
-      } else {
-        html += `<p>No hay ventas registradas para esta fecha.</p>`;
+  // ---------- Gráficas ----------
+  if (typeof Chart === 'undefined') {
+    // Si por alguna razón Chart.js no cargó, no rompemos nada
+    return;
+  }
+
+  const contado = Number(t.contado || 0);
+  const credito = Number(t.credito || 0);
+
+  const costo   = Number(t.costo_estimado || 0);
+  const ganancia = Number(t.ganancia_estimada || 0);
+
+  const ctxVentas = document.getElementById('chart-ventas');
+  const ctxMargen = document.getElementById('chart-margen');
+
+  // Pie: contado vs crédito
+  if (ctxVentas){
+    if (chartVentasPie) chartVentasPie.destroy();
+    chartVentasPie = new Chart(ctxVentas, {
+      type: 'pie',
+      data: {
+        labels: ['Contado', 'Crédito'],
+        datasets: [{
+          data: [contado, credito]
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { position: 'bottom' },
+          title:  { display: false }
+        }
       }
+    });
+  }
 
-      respResumenVentas.innerHTML = html;
+  // Pie: costo vs ganancia (margen)
+  if (ctxMargen){
+    if (chartMargenPie) chartMargenPie.destroy();
+    chartMargenPie = new Chart(ctxMargen, {
+      type: 'pie',
+      data: {
+        labels: ['Costo', 'Ganancia'],
+        datasets: [{
+          data: [costo, ganancia]
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { position: 'bottom' },
+          title:  { display: false }
+        }
+      }
+    });
+  }
 
-    } catch (err) {
-      showResp(respResumenVentas, { error: String(err) });
+  if (chartsSection){
+    chartsSection.open = true;   // las mostramos abiertas al ver el resumen
+  }
+
+  // Debug opcional
+  const DEBUG = (localStorage.getItem('FERJO_DEBUG') === '1');
+  if (respResumenVentas){
+    if (DEBUG){
+      showResp(respResumenVentas, out);
+    } else {
+      respResumenVentas.textContent = '';
+    }
+  }
+}
+
+// Listener del formulario de resumen
+if (formResumenVentas){
+  formResumenVentas.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    if (respResumenVentas) respResumenVentas.textContent = '';
+
+    const fd    = new FormData(formResumenVentas);
+    const fecha = (fd.get('fecha') || '').trim();
+
+    if (!fecha){
+      alert('Selecciona una fecha.');
+      return;
+    }
+
+    if (respResumenVentas){
+      appendResp(respResumenVentas, { debug:'GET sales_summary', fecha });
+    }
+
+    try{
+      const out = await getWithToken('sales_summary', { fecha });
+      renderSalesSummary(out);
+    }catch(err){
+      if (respResumenVentas) showResp(respResumenVentas, { error:String(err) });
     }
   });
 }
