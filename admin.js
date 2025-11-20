@@ -877,6 +877,7 @@ if (formResumenVentas && respResumenVentas) {
 
       if (detalle.length) {
         detalle.forEach(v => {
+          console.log('DEBUG venta', v.id_venta, 'items:', (v.detalle_items || []).length);
           const items = Array.isArray(v.detalle_items) ? v.detalle_items : [];
 
           html += `
