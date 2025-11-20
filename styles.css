@@ -33,3 +33,21 @@ footer{padding:20px;text-align:center;color:#666}
 
 /* Botón deshabilitado */
 button[disabled] { opacity: .6; cursor: not-allowed; }
+
+.pie-legend {
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+
+.pie-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pie-legend-color {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
