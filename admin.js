@@ -698,6 +698,102 @@ formVenta.addEventListener('submit', async (e)=>{
   }
 });
 
+// ===================================================
+//    Helper: pie chart sencillo para el resumen diario
+// ===================================================
+function drawSimplePie(container, slices) {
+  if (!container) return;
+
+  // Normalizamos datos
+  const data = (slices || []).map(s => ({
+    label: s.label,
+    valor: Number(s.valor) || 0
+  }));
+
+  const total = data.reduce((acc, s) => acc + s.valor, 0);
+
+  // Limpiamos contenedor
+  container.innerHTML = '';
+
+  // Canvas + leyenda
+  const canvas = document.createElement('canvas');
+  canvas.width  = 260;
+  canvas.height = 260;
+  const legend = document.createElement('div');
+  legend.className = 'pie-legend';
+
+  container.appendChild(canvas);
+  container.appendChild(legend);
+
+  const ctx = canvas.getContext('2d');
+  const cx  = canvas.width  / 2;
+  const cy  = canvas.height / 2;
+  const r   = Math.min(cx, cy) - 10;
+
+  // Paleta simple (se reutiliza si hay más de 6 segmentos)
+  const colors = [
+    '#4e79a7', // azul
+    '#f28e2b', // naranja
+    '#e15759', // rojo
+    '#76b7b2', // verde agua
+    '#59a14f', // verde
+    '#edc948'  // amarillo
+  ];
+
+  // Caso sin datos: círculo gris con texto "Sin datos"
+  if (!total) {
+    ctx.fillStyle = '#ddd';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#555';
+    ctx.font = '14px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Sin datos', cx, cy);
+
+    legend.innerHTML = '<div class="pie-legend-item">Sin datos</div>';
+    return;
+  }
+
+  // Dibujar slices
+  let startAngle = -Math.PI / 2; // empezar arriba
+
+  data.forEach((s, i) => {
+    const angle = (s.valor / total) * Math.PI * 2;
+    const endAngle = startAngle + angle;
+    const color = colors[i % colors.length];
+
+    // Arco exterior
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    startAngle = endAngle;
+
+    // Leyenda
+    const pct = total ? (s.valor / total) * 100 : 0;
+    const item = document.createElement('div');
+    item.className = 'pie-legend-item';
+    item.innerHTML = `
+      <span class="pie-color" style="background:${color}"></span>
+      <span class="pie-label">${s.label}:</span>
+      <span class="pie-value">Q ${s.valor.toFixed(2)} (${pct.toFixed(1)}%)</span>
+    `;
+    legend.appendChild(item);
+  });
+
+  // Opcional: efecto "donut" (círculo blanco al centro)
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.45, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+}
+
 
 // ===================================================
 //        RESUMEN DE VENTAS DEL DÍA (sales_summary)
