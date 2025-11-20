@@ -51,3 +51,80 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   height: 12px;
   border-radius: 3px;
 }
+.resumen-section {
+  margin-top: 12px;
+}
+
+.resumen-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.venta-card {
+  margin: 8px 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.venta-card > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.venta-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.venta-summary-left .venta-id {
+  font-weight: 700;
+}
+
+.venta-summary-left .venta-cliente {
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.venta-summary-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.badge-contado,
+.badge-credito {
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+.badge-contado {
+  background:#e5f5e0;
+  color:#1b7b34;
+}
+
+.badge-credito {
+  background:#ffe6e6;
+  color:#b30000;
+}
+
+.venta-sin-detalle {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.charts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.chart-box {
+  max-width: 320px;
+}
