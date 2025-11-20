@@ -699,99 +699,187 @@ formVenta.addEventListener('submit', async (e)=>{
 });
 
 // ===================================================
-//    Helper: pie chart sencillo para el resumen diario
+//   RESUMEN DE VENTAS DEL DÍA (sales_summary + Chart.js)
 // ===================================================
-function drawSimplePie(container, slices) {
-  if (!container) return;
 
-  // Normalizamos datos
-  const data = (slices || []).map(s => ({
-    label: s.label,
-    valor: Number(s.valor) || 0
-  }));
+const formResumenVentas   = document.getElementById('formResumenVentas');
+const respResumenVentas   = document.getElementById('respResumenVentas');
+const totalesDiaBox       = document.getElementById('totales-dia');
+const detalleVentasBody   = document.getElementById('detalle-ventas-body');
+const canvasChartVentas   = document.getElementById('chart-ventas');
+const canvasChartMargen   = document.getElementById('chart-margen');
 
-  const total = data.reduce((acc, s) => acc + s.valor, 0);
+let chartVentas = null;
+let chartMargen = null;
 
-  // Limpiamos contenedor
-  container.innerHTML = '';
+const DEBUG_RESUMEN = (localStorage.getItem('FERJO_DEBUG') === '1');
 
-  // Canvas + leyenda
-  const canvas = document.createElement('canvas');
-  canvas.width  = 260;
-  canvas.height = 260;
-  const legend = document.createElement('div');
-  legend.className = 'pie-legend';
+// -------- Helpers de render --------
+function renderTotalesDia(out) {
+  if (!totalesDiaBox) return;
+  const t = out.totales || {};
 
-  container.appendChild(canvas);
-  container.appendChild(legend);
+  const totalDia   = Number(t.total_dia || 0);
+  const contado    = Number(t.contado || 0);
+  const credito    = Number(t.credito || 0);
+  const pagadoHoy  = Number(t.pagado_hoy || 0);
+  const saldoPend  = Number(t.saldo_pendiente || 0);
+  const costoEst   = Number(t.costo_estimado || 0);
+  const ganancia   = Number(t.ganancia_estimada || 0);
 
-  const ctx = canvas.getContext('2d');
-  const cx  = canvas.width  / 2;
-  const cy  = canvas.height / 2;
-  const r   = Math.min(cx, cy) - 10;
+  totalesDiaBox.innerHTML = `
+    <h4>Totales del día (${out.fecha})</h4>
+    <div class="totales-grid">
+      <div><strong>Total del día:</strong> Q ${totalDia.toFixed(2)}</div>
+      <div><strong>Contado:</strong> Q ${contado.toFixed(2)}</div>
+      <div><strong>Crédito:</strong> Q ${credito.toFixed(2)}</div>
+      <div><strong>Pagado hoy:</strong> Q ${pagadoHoy.toFixed(2)}</div>
+      <div><strong>Saldo pendiente:</strong> Q ${saldoPend.toFixed(2)}</div>
+      <div><strong>Costo estimado:</strong> Q ${costoEst.toFixed(2)}</div>
+      <div><strong>Ganancia estimada:</strong> Q ${ganancia.toFixed(2)}</div>
+    </div>
+  `;
+}
 
-  // Paleta simple (se reutiliza si hay más de 6 segmentos)
-  const colors = [
-    '#4e79a7', // azul
-    '#f28e2b', // naranja
-    '#e15759', // rojo
-    '#76b7b2', // verde agua
-    '#59a14f', // verde
-    '#edc948'  // amarillo
-  ];
+function renderDetalleVentas(detalle) {
+  if (!detalleVentasBody) return;
+  detalleVentasBody.innerHTML = '';
 
-  // Caso sin datos: círculo gris con texto "Sin datos"
-  if (!total) {
-    ctx.fillStyle = '#ddd';
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#555';
-    ctx.font = '14px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('Sin datos', cx, cy);
-
-    legend.innerHTML = '<div class="pie-legend-item">Sin datos</div>';
+  if (!detalle || !detalle.length) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td colspan="6" style="text-align:center; padding:8px;">
+        No hay ventas registradas para esta fecha.
+      </td>
+    `;
+    detalleVentasBody.appendChild(tr);
     return;
   }
 
-  // Dibujar slices
-  let startAngle = -Math.PI / 2; // empezar arriba
+  detalle.forEach(v => {
+    const tr = document.createElement('tr');
+    const tipo = (v.tipo_venta || '').toLowerCase();
+    const claseTipo = tipo === 'credito' ? 'badge-credito' : 'badge-contado';
 
-  data.forEach((s, i) => {
-    const angle = (s.valor / total) * Math.PI * 2;
-    const endAngle = startAngle + angle;
-    const color = colors[i % colors.length];
-
-    // Arco exterior
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, r, startAngle, endAngle);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    startAngle = endAngle;
-
-    // Leyenda
-    const pct = total ? (s.valor / total) * 100 : 0;
-    const item = document.createElement('div');
-    item.className = 'pie-legend-item';
-    item.innerHTML = `
-      <span class="pie-color" style="background:${color}"></span>
-      <span class="pie-label">${s.label}:</span>
-      <span class="pie-value">Q ${s.valor.toFixed(2)} (${pct.toFixed(1)}%)</span>
+    tr.innerHTML = `
+      <td>${v.hora || ''}</td>
+      <td>${v.cliente || ''}</td>
+      <td>
+        <span class="${claseTipo}">
+          ${tipo || ''}
+        </span>
+      </td>
+      <td style="text-align:right;">Q ${Number(v.total_neto || 0).toFixed(2)}</td>
+      <td style="text-align:right;">Q ${Number(v.pagado || 0).toFixed(2)}</td>
+      <td style="text-align:right;">Q ${Number(v.saldo || 0).toFixed(2)}</td>
     `;
-    legend.appendChild(item);
+    detalleVentasBody.appendChild(tr);
   });
+}
 
-  // Opcional: efecto "donut" (círculo blanco al centro)
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.45, 0, Math.PI * 2);
-  ctx.fillStyle = '#fff';
-  ctx.fill();
+function renderCharts(totales) {
+  const t = totales || {};
+  const contado  = Number(t.contado || 0);
+  const credito  = Number(t.credito || 0);
+  const costo    = Number(t.costo_estimado || 0);
+  const ganancia = Number(t.ganancia_estimada || 0);
+
+  // --- Chart 1: Contado vs Crédito ---
+  if (canvasChartVentas && typeof Chart !== 'undefined') {
+    if (chartVentas) chartVentas.destroy();
+
+    chartVentas = new Chart(canvasChartVentas, {
+      type: 'doughnut',
+      data: {
+        labels: ['Contado', 'Crédito'],
+        datasets: [{
+          data: [contado, credito]
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          title: {
+            display: false
+          }
+        },
+        cutout: '60%'
+      }
+    });
+  }
+
+  // --- Chart 2: Costo vs Ganancia ---
+  if (canvasChartMargen && typeof Chart !== 'undefined') {
+    if (chartMargen) chartMargen.destroy();
+
+    chartMargen = new Chart(canvasChartMargen, {
+      type: 'doughnut',
+      data: {
+        labels: ['Costo', 'Ganancia'],
+        datasets: [{
+          data: [costo, ganancia]
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          title: {
+            display: false
+          }
+        },
+        cutout: '60%'
+      }
+    });
+  }
+}
+
+// -------- Manejador del formulario --------
+if (formResumenVentas && respResumenVentas) {
+  formResumenVentas.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    respResumenVentas.textContent = '';
+
+    const fd    = new FormData(formResumenVentas);
+    const fecha = (fd.get('fecha') || '').trim();
+
+    if (!fecha) {
+      alert('Selecciona una fecha.');
+      return;
+    }
+
+    appendResp(respResumenVentas, { debug: 'GET sales_summary', fecha });
+
+    try {
+      const out = await getWithToken('sales_summary', { fecha });
+
+      if (!out || !out.ok) {
+        showResp(respResumenVentas, out || { error: 'Sin respuesta' });
+        return;
+      }
+
+      // 1) Totales
+      renderTotalesDia(out);
+
+      // 2) Detalle de ventas (tabla)
+      renderDetalleVentas(out.detalle_ventas || []);
+
+      // 3) Gráficas
+      renderCharts(out.totales || {});
+
+      // 4) Debug opcional
+      if (DEBUG_RESUMEN) {
+        respResumenVentas.textContent += '\n\n[DEBUG]\n' +
+          JSON.stringify(out, null, 2);
+      } else {
+        respResumenVentas.textContent = '';
+      }
+
+    } catch (err) {
+      showResp(respResumenVentas, { error: String(err) });
+    }
+  });
 }
 
 // ===================================================
