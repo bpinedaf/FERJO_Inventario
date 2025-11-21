@@ -128,3 +128,29 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
 .chart-box {
   max-width: 320px;
 }
+/* --- Resumen de ventas: resaltado de fila seleccionada --- */
+#detalle-ventas-body tr {
+  cursor: pointer;
+}
+
+#detalle-ventas-body tr.venta-row-selected {
+  background-color: #eef6ff;
+}
+
+#detalle-ventas-body tr.venta-row-selected:hover {
+  background-color: #ddeaff;
+}
+
+/* Botón pequeño en el detalle de venta */
+.detalle-venta-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 1.5rem 0 0.5rem 0;
+  font-weight: 600;
+}
+
+.detalle-venta-header button {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
