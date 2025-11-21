@@ -701,31 +701,223 @@ formVenta.addEventListener('submit', async (e)=>{
 // ===================================================
 //        RESUMEN DE VENTAS DEL DÍA (sales_summary)
 // ===================================================
-const formResumenVentas   = document.getElementById('formResumenVentas');
-const respResumenVentas   = document.getElementById('respResumenVentas'); // debug
-const totalesDiaBox       = document.getElementById('totales-dia');
-const detalleVentasBody   = document.getElementById('detalle-ventas-body');
-const chartsSection       = document.getElementById('charts-section');
-const detalleSection      = document.getElementById('detalle-section');
+const formResumenVentas = document.getElementById('formResumenVentas');
+const respResumenVentas = document.getElementById('respResumenVentas');
 
-// Nuevos: detalle de una venta
-const ventaDetalleWrapper = document.getElementById('venta-detalle-wrapper');
-const ventaDetalleBody    = document.getElementById('venta-detalle-body');
-const ventaDetalleTitulo  = document.getElementById('venta-detalle-titulo');
+const totalesDiaBox    = document.getElementById('totales-dia');
+const detalleVentasTbody = document.getElementById('detalle-ventas-body');
+const resumenWrapper   = document.getElementById('resumenVentasWrapper');
 
-// Cache para poder mostrar detalle al hacer clic en la tabla
-let ventasResumenCache = [];
+let chartVentas = null;
+let chartMargen = null;
+let ventasDelDia = [];
+let resumenDocUrlActual = '';
 
-// Gráficas (Chart.js)
-let chartVentas  = null;
-let chartMargen  = null;
+// Crea (si no existe) el contenedor del detalle de una venta
+function ensureDetalleVentaBox() {
+  let box = document.getElementById('detalle-venta-seleccionada');
+  if (!box) {
+    box = document.createElement('section');
+    box.id = 'detalle-venta-seleccionada';
+    resumenWrapper.appendChild(box);
+  }
+  return box;
+}
 
-if (formResumenVentas && respResumenVentas) {
+// Render totales del día
+function renderTotales(out) {
+  const t = out.totales || {};
+  const fecha = out.fecha || '';
+
+  if (!totalesDiaBox) return;
+
+  totalesDiaBox.innerHTML = `
+    <h4>Totales del día (${fecha})</h4>
+    <ul>
+      <li><strong>Total del día:</strong> Q ${Number(t.total_dia || 0).toFixed(2)}</li>
+      <li><strong>Contado:</strong> Q ${Number(t.contado || 0).toFixed(2)}</li>
+      <li><strong>Crédito:</strong> Q ${Number(t.credito || 0).toFixed(2)}</li>
+      <li><strong>Pagado hoy:</strong> Q ${Number(t.pagado_hoy || 0).toFixed(2)}</li>
+      <li><strong>Saldo pendiente:</strong> Q ${Number(t.saldo_pendiente || 0).toFixed(2)}</li>
+      <li><strong>Costo estimado:</strong> Q ${Number(t.costo_estimado || 0).toFixed(2)}</li>
+      <li><strong>Ganancia estimada:</strong> Q ${Number(t.ganancia_estimada || 0).toFixed(2)}</li>
+    </ul>
+  `;
+}
+
+// Renderiza o actualiza las gráficas (Chart.js)
+function renderCharts(out) {
+  const t = out.totales || {};
+  const totContado = Number(t.contado || 0);
+  const totCredito = Number(t.credito || 0);
+  const totCosto   = Number(t.costo_estimado || 0);
+  const totGan     = Number(t.ganancia_estimada || 0);
+
+  const canvasVentas = document.getElementById('chart-ventas');
+  const canvasMargen = document.getElementById('chart-margen');
+
+  if (!canvasVentas || !canvasMargen || typeof Chart === 'undefined') return;
+
+  if (chartVentas) chartVentas.destroy();
+  if (chartMargen) chartMargen.destroy();
+
+  chartVentas = new Chart(canvasVentas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Contado', 'Crédito'],
+      datasets: [{
+        data: [totContado, totCredito],
+        backgroundColor: ['#4e79a7', '#f28e2b']
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = totContado + totCredito || 1;
+              const v = ctx.parsed;
+              const pct = (v / total) * 100;
+              return `${ctx.label}: Q ${v.toFixed(2)} (${pct.toFixed(1)}%)`;
+            }
+          }
+        }
+      },
+      cutout: '60%'
+    }
+  });
+
+  chartMargen = new Chart(canvasMargen.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Costo', 'Ganancia'],
+      datasets: [{
+        data: [totCosto, totGan],
+        backgroundColor: ['#4e79a7', '#e15759']
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = totCosto + totGan || 1;
+              const v = ctx.parsed;
+              const pct = (v / total) * 100;
+              return `${ctx.label}: Q ${v.toFixed(2)} (${pct.toFixed(1)}%)`;
+            }
+          }
+        }
+      },
+      cutout: '60%'
+    }
+  });
+}
+
+// Pinta el detalle de una venta específica abajo de la tabla
+function renderDetalleVentaSeleccionada(venta) {
+  const box = ensureDetalleVentaBox();
+  if (!venta) {
+    box.innerHTML = '';
+    return;
+  }
+
+  const items = Array.isArray(venta.detalle_items) ? venta.detalle_items : [];
+  const tieneComprobante = !!(venta.doc_url);
+
+  let html = `
+    <div class="detalle-venta-header">
+      <span>Detalle de la venta ${venta.id_venta || ''} — ${venta.cliente || ''}</span>
+      ${
+        tieneComprobante
+          ? `<button type="button" id="btnDetalleVerComprobante">Ver comprobante</button>`
+          : `<button type="button" id="btnDetalleVerComprobante" disabled title="Esta venta no tiene comprobante registrado">Sin comprobante</button>`
+      }
+    </div>
+  `;
+
+  if (!items.length) {
+    html += `<p>Sin detalle de artículos para esta venta.</p>`;
+  } else {
+    html += `
+      <div class="table-wrapper">
+        <table class="tabla tabla-detalle-venta">
+          <thead>
+            <tr>
+              <th>Línea</th>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Cant.</th>
+              <th>Precio unit.</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    items.forEach(it => {
+      html += `
+        <tr>
+          <td>${it.linea || ''}</td>
+          <td>${it.id_del_articulo || ''}</td>
+          <td>${it.nombre || ''}</td>
+          <td>${Number(it.cantidad || 0)}</td>
+          <td>Q ${Number(it.precio_unitario || 0).toFixed(2)}</td>
+          <td>Q ${Number(it.subtotal || 0).toFixed(2)}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  box.innerHTML = html;
+
+  // Enlazar botón "Ver comprobante"
+  const btnComp = box.querySelector('#btnDetalleVerComprobante');
+  if (btnComp && venta.doc_url) {
+    btnComp.addEventListener('click', () => {
+      window.open(venta.doc_url, '_blank');
+    });
+  }
+}
+
+// Selecciona una venta (por índice) y actualiza resaltado + detalle
+function seleccionarVentaPorIndex(idx) {
+  if (!ventasDelDia.length || idx < 0 || idx >= ventasDelDia.length) {
+    renderDetalleVentaSeleccionada(null);
+    return;
+  }
+
+  const venta = ventasDelDia[idx];
+  resumenDocUrlActual = venta.doc_url || '';
+
+  // Quitar clase de seleccionadas
+  detalleVentasTbody.querySelectorAll('tr').forEach(tr => {
+    tr.classList.remove('venta-row-selected');
+  });
+
+  // Agregar clase a la fila activa
+  const trSel = detalleVentasTbody.querySelector(`tr[data-index="${idx}"]`);
+  if (trSel) trSel.classList.add('venta-row-selected');
+
+  // Render detalle
+  renderDetalleVentaSeleccionada(venta);
+}
+
+// Evento principal: submit del formulario de resumen
+if (formResumenVentas && respResumenVentas && detalleVentasTbody) {
   formResumenVentas.addEventListener('submit', async (e) => {
     e.preventDefault();
-    respResumenVentas.textContent = ''; // debug limpio
-    if (ventaDetalleWrapper) ventaDetalleWrapper.style.display = 'none';
-    ventasResumenCache = [];
+    respResumenVentas.textContent = '';
 
     const fd    = new FormData(formResumenVentas);
     const fecha = (fd.get('fecha') || '').trim();
@@ -748,165 +940,54 @@ if (formResumenVentas && respResumenVentas) {
         return;
       }
 
-      const t       = out.totales || {};
-      const detalle = out.detalle_ventas || [];
-      ventasResumenCache = detalle;
+      // Guardar ventas en memoria
+      ventasDelDia = Array.isArray(out.detalle_ventas) ? out.detalle_ventas : [];
 
-      const totContado = Number(t.contado || 0);
-      const totCredito = Number(t.credito || 0);
-      const totCosto   = Number(t.costo_estimado || 0);
-      const totGan     = Number(t.ganancia_estimada || 0);
+      // Totales
+      renderTotales(out);
 
-      // ---------- Totales del día (texto) ----------
-      if (totalesDiaBox) {
-        totalesDiaBox.innerHTML = `
-          <h4>Totales del día (${out.fecha})</h4>
-          <p><strong>Total del día:</strong> Q ${Number(t.total_dia || 0).toFixed(2)}</p>
-          <p><strong>Contado:</strong> Q ${totContado.toFixed(2)}</p>
-          <p><strong>Crédito:</strong> Q ${totCredito.toFixed(2)}</p>
-          <p><strong>Pagado hoy:</strong> Q ${Number(t.pagado_hoy || 0).toFixed(2)}</p>
-          <p><strong>Saldo pendiente:</strong> Q ${Number(t.saldo_pendiente || 0).toFixed(2)}</p>
-          <p><strong>Costo estimado:</strong> Q ${totCosto.toFixed(2)}</p>
-          <p><strong>Ganancia estimada:</strong> Q ${totGan.toFixed(2)}</p>
+      // Gráficas
+      renderCharts(out);
+
+      // Tabla de detalle (lista de ventas)
+      detalleVentasTbody.innerHTML = '';
+      ventasDelDia.forEach((v, idx) => {
+        const tr = document.createElement('tr');
+        tr.dataset.index = String(idx);
+        tr.innerHTML = `
+          <td>${v.hora || ''}</td>
+          <td>${v.cliente || ''}</td>
+          <td>
+            <span class="venta-tipo ${v.tipo_venta === 'credito' ? 'badge-credito' : 'badge-contado'}">
+              ${v.tipo_venta || ''}
+            </span>
+          </td>
+          <td style="text-align:right;">Q ${Number(v.total_neto || 0).toFixed(2)}</td>
+          <td style="text-align:right;">Q ${Number(v.pagado || 0).toFixed(2)}</td>
+          <td style="text-align:right;">Q ${Number(v.saldo || 0).toFixed(2)}</td>
         `;
+        detalleVentasTbody.appendChild(tr);
+      });
+
+      // Seleccionar por defecto la primera venta (si hay)
+      if (ventasDelDia.length) {
+        seleccionarVentaPorIndex(0);
+      } else {
+        renderDetalleVentaSeleccionada(null);
       }
-
-      // ---------- Gráficas (Chart.js) ----------
-      const canvasVentas = document.getElementById('chart-ventas');
-      const canvasMargen = document.getElementById('chart-margen');
-
-      if (canvasVentas && canvasVentas.getContext) {
-        const ctxV = canvasVentas.getContext('2d');
-        if (chartVentas) chartVentas.destroy();
-        chartVentas = new Chart(ctxV, {
-          type: 'doughnut',
-          data: {
-            labels: ['Contado', 'Crédito'],
-            datasets: [{
-              data: [totContado, totCredito],
-              // Chart.js asignará colores por defecto
-            }]
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              legend: { position: 'bottom' }
-            }
-          }
-        });
-      }
-
-      if (canvasMargen && canvasMargen.getContext) {
-        const ctxM = canvasMargen.getContext('2d');
-        if (chartMargen) chartMargen.destroy();
-        chartMargen = new Chart(ctxM, {
-          type: 'doughnut',
-          data: {
-            labels: ['Costo', 'Ganancia'],
-            datasets: [{
-              data: [totCosto, totGan]
-            }]
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              legend: { position: 'bottom' }
-            }
-          }
-        });
-      }
-
-      // ---------- Detalle de ventas (tabla principal) ----------
-      if (detalleVentasBody) {
-        detalleVentasBody.innerHTML = '';
-
-        if (!detalle.length) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td colspan="6" style="text-align:center;">No hay ventas registradas para esta fecha.</td>
-          `;
-          detalleVentasBody.appendChild(tr);
-        } else {
-          detalle.forEach((v, idx) => {
-            const tr = document.createElement('tr');
-            tr.dataset.index = String(idx); // para click
-            const tipo = (v.tipo_venta || '').toLowerCase();
-
-            tr.innerHTML = `
-              <td>${v.hora || ''}</td>
-              <td>${v.cliente || ''}</td>
-              <td>
-                <span class="venta-tipo ${
-                  tipo === 'credito' ? 'badge-credito' : 'badge-contado'
-                }">
-                  ${v.tipo_venta || ''}
-                </span>
-              </td>
-              <td style="text-align:right;">Q ${Number(v.total_neto || 0).toFixed(2)}</td>
-              <td style="text-align:right;">Q ${Number(v.pagado || 0).toFixed(2)}</td>
-              <td style="text-align:right;">Q ${Number(v.saldo || 0).toFixed(2)}</td>
-            `;
-            detalleVentasBody.appendChild(tr);
-          });
-        }
-      }
-
-      // Abrimos automáticamente la sección de totales y detalle
-      if (chartsSection)  chartsSection.open  = false; // el usuario decide
-      if (detalleSection) detalleSection.open = true;
 
     } catch (err) {
       showResp(respResumenVentas, { error: String(err) });
     }
   });
-}
 
-// ---------- Click en una venta para ver su detalle de artículos ----------
-if (detalleVentasBody && ventaDetalleBody && ventaDetalleWrapper) {
-  detalleVentasBody.addEventListener('click', (ev) => {
+  // Delegación de eventos para clicks en filas de ventas
+  detalleVentasTbody.addEventListener('click', (ev) => {
     const tr = ev.target.closest('tr[data-index]');
     if (!tr) return;
-
-    const idx = Number(tr.dataset.index || '-1');
-    if (isNaN(idx) || idx < 0 || idx >= ventasResumenCache.length) return;
-
-    const venta = ventasResumenCache[idx];
-    const items = Array.isArray(venta.detalle_items) ? venta.detalle_items : [];
-
-    // Título
-    if (ventaDetalleTitulo) {
-      ventaDetalleTitulo.textContent =
-        `Detalle de la venta ${venta.id_venta || ''} — ${venta.cliente || ''}`;
+    const idx = Number(tr.dataset.index);
+    if (!Number.isNaN(idx)) {
+      seleccionarVentaPorIndex(idx);
     }
-
-    // Cuerpo
-    ventaDetalleBody.innerHTML = '';
-
-    if (!items.length) {
-      const trMsg = document.createElement('tr');
-      trMsg.innerHTML = `
-        <td colspan="6" style="text-align:center;">
-          Esta venta no tiene detalle de artículos registrado.
-        </td>
-      `;
-      ventaDetalleBody.appendChild(trMsg);
-    } else {
-      items.forEach(it => {
-        const trItem = document.createElement('tr');
-        trItem.innerHTML = `
-          <td>${it.linea || ''}</td>
-          <td>${it.id_del_articulo || ''}</td>
-          <td>${it.nombre || ''}</td>
-          <td>${Number(it.cantidad || 0)}</td>
-          <td>Q ${Number(it.precio_unitario || 0).toFixed(2)}</td>
-          <td>Q ${Number(it.subtotal || 0).toFixed(2)}</td>
-        `;
-        ventaDetalleBody.appendChild(trItem);
-      });
-    }
-
-    // Mostramos el bloque y nos aseguramos de que la sección esté abierta
-    ventaDetalleWrapper.style.display = 'block';
-    if (detalleSection) detalleSection.open = true;
   });
 }
