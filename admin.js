@@ -47,6 +47,12 @@ async function fetchJSON(url, opts={}){
   }
 }
 
+// 👉 Helper simple para formatear en Quetzales
+function formatQ(num){
+  const n = Number(num || 0);
+  return 'Q ' + n.toFixed(2);
+}
+
 // ---------- Helpers de Autenticación ----------
 function getToken(){
   return (window.AUTH && AUTH.token) || sessionStorage.getItem('FERJO_ID_TOKEN') || '';
@@ -988,6 +994,285 @@ if (formResumenVentas && respResumenVentas && detalleVentasTbody) {
     const idx = Number(tr.dataset.index);
     if (!Number.isNaN(idx)) {
       seleccionarVentaPorIndex(idx);
+    }
+  });
+}
+
+// ===================================================
+//        REPORTES AVANZADOS (sales_report)
+// ===================================================
+
+// Referencias DOM
+const formReportesAvanzados = document.getElementById('formReportesAvanzados');
+const repAvDesde            = document.getElementById('repAvDesde');
+const repAvHasta            = document.getElementById('repAvHasta');
+const repAvWrapper          = document.getElementById('repAvWrapper');
+const repAvTotalesBox       = document.getElementById('repAvTotales');
+const repAvPorDiaBody       = document.getElementById('repAvPorDiaBody');
+const repAvTopProdBody      = document.getElementById('repAvTopProdBody');
+const repAvTopCliBody       = document.getElementById('repAvTopCliBody');
+const repAvCxcBody          = document.getElementById('repAvCxcBody');
+const repAvDebugPre         = document.getElementById('repAvDebug');
+
+// Llamada al endpoint (reutilizamos getWithToken)
+async function fetchSalesReport(desde, hasta) {
+  return await getWithToken('sales_report', { desde, hasta });
+}
+
+// Pintar el reporte avanzado
+function renderSalesReport(data) {
+  if (!repAvWrapper) return;
+
+  repAvWrapper.style.display = 'block';
+
+  // --- Totales del rango ---
+  if (repAvTotalesBox) {
+    repAvTotalesBox.innerHTML = '';
+    const t = data.totales || {};
+    const cards = [
+      { label: 'Total del rango',      value: formatQ(t.total_rango) },
+      { label: 'Contado',              value: formatQ(t.contado) },
+      { label: 'Crédito',              value: formatQ(t.credito) },
+      { label: 'Pagado en el rango',   value: formatQ(t.pagado_rango) },
+      { label: 'Saldo pendiente',      value: formatQ(t.saldo_pendiente) },
+      { label: 'Costo estimado',       value: formatQ(t.costo_estimado) },
+      { label: 'Ganancia estimada',    value: formatQ(t.ganancia_estimada) }
+    ];
+
+    cards.forEach(card => {
+      const div = document.createElement('div');
+      div.style.flex = '1 1 160px';
+      div.style.minWidth = '150px';
+      div.style.padding = '12px';
+      div.style.borderRadius = '10px';
+      div.style.border = '1px solid #ddd';
+      div.style.background = '#fafafa';
+
+      const label = document.createElement('div');
+      label.style.fontSize = '0.85rem';
+      label.style.color = '#555';
+      label.textContent = card.label;
+
+      const val = document.createElement('div');
+      val.style.fontSize = '1.1rem';
+      val.style.fontWeight = '600';
+      val.textContent = card.value;
+
+      div.appendChild(label);
+      div.appendChild(val);
+      repAvTotalesBox.appendChild(div);
+    });
+  }
+
+  // --- Ventas por día ---
+  if (repAvPorDiaBody) {
+    repAvPorDiaBody.innerHTML = '';
+    const porDia = data.por_dia || [];
+
+    porDia.forEach(dia => {
+      const tr = document.createElement('tr');
+
+      const tdFecha = document.createElement('td');
+      tdFecha.textContent = dia.fecha;
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(dia.total_dia);
+
+      const tdContado = document.createElement('td');
+      tdContado.style.textAlign = 'right';
+      tdContado.textContent = formatQ(dia.contado);
+
+      const tdCredito = document.createElement('td');
+      tdCredito.style.textAlign = 'right';
+      tdCredito.textContent = formatQ(dia.credito);
+
+      const tdPagado = document.createElement('td');
+      tdPagado.style.textAlign = 'right';
+      tdPagado.textContent = formatQ(dia.pagado_dia);
+
+      const tdSaldo = document.createElement('td');
+      tdSaldo.style.textAlign = 'right';
+      tdSaldo.textContent = formatQ(dia.saldo_pendiente);
+
+      tr.appendChild(tdFecha);
+      tr.appendChild(tdTotal);
+      tr.appendChild(tdContado);
+      tr.appendChild(tdCredito);
+      tr.appendChild(tdPagado);
+      tr.appendChild(tdSaldo);
+      repAvPorDiaBody.appendChild(tr);
+    });
+
+    if (!porDia.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.textContent = 'No hay ventas en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repAvPorDiaBody.appendChild(tr);
+    }
+  }
+
+  // --- Top productos ---
+  if (repAvTopProdBody) {
+    repAvTopProdBody.innerHTML = '';
+    const topP = data.top_productos || [];
+
+    topP.forEach(p => {
+      const tr = document.createElement('tr');
+
+      const tdCod = document.createElement('td');
+      tdCod.textContent = p.id_del_articulo || '';
+
+      const tdNom = document.createElement('td');
+      tdNom.textContent = p.nombre || '';
+
+      const tdCant = document.createElement('td');
+      tdCant.style.textAlign = 'right';
+      tdCant.textContent = p.cantidad != null ? p.cantidad : '';
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(p.total_neto);
+
+      tr.appendChild(tdCod);
+      tr.appendChild(tdNom);
+      tr.appendChild(tdCant);
+      tr.appendChild(tdTotal);
+      repAvTopProdBody.appendChild(tr);
+    });
+
+    if (!topP.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.textContent = 'No hay productos vendidos en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repAvTopProdBody.appendChild(tr);
+    }
+  }
+
+  // --- Top clientes ---
+  if (repAvTopCliBody) {
+    repAvTopCliBody.innerHTML = '';
+    const topC = data.top_clientes || [];
+
+    topC.forEach(c => {
+      const tr = document.createElement('tr');
+
+      const tdNom = document.createElement('td');
+      tdNom.textContent = c.nombre || c.id_cliente || '';
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(c.total_neto);
+
+      const tdSaldo = document.createElement('td');
+      tdSaldo.style.textAlign = 'right';
+      tdSaldo.textContent = formatQ(c.saldo_pendiente);
+
+      tr.appendChild(tdNom);
+      tr.appendChild(tdTotal);
+      tr.appendChild(tdSaldo);
+      repAvTopCliBody.appendChild(tr);
+    });
+
+    if (!topC.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 3;
+      td.textContent = 'No hay clientes con compras en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repAvTopCliBody.appendChild(tr);
+    }
+  }
+
+  // --- Cuentas por cobrar ---
+  if (repAvCxcBody) {
+    repAvCxcBody.innerHTML = '';
+    const cxc = data.cuentas_por_cobrar || [];
+
+    cxc.forEach(c => {
+      const tr = document.createElement('tr');
+
+      const tdNom = document.createElement('td');
+      tdNom.textContent = c.nombre || c.id_cliente || '';
+
+      const tdSaldo = document.createElement('td');
+      tdSaldo.style.textAlign = 'right';
+      tdSaldo.textContent = formatQ(c.saldo_pendiente_total);
+
+      const tdVentas = document.createElement('td');
+      tdVentas.style.textAlign = 'right';
+      tdVentas.textContent = c.ventas_pendientes != null ? c.ventas_pendientes : '';
+
+      tr.appendChild(tdNom);
+      tr.appendChild(tdSaldo);
+      tr.appendChild(tdVentas);
+      repAvCxcBody.appendChild(tr);
+    });
+
+    if (!cxc.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 3;
+      td.textContent = 'No hay cuentas por cobrar en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repAvCxcBody.appendChild(tr);
+    }
+  }
+
+  // --- Debug JSON ---
+  if (repAvDebugPre) {
+    repAvDebugPre.textContent = JSON.stringify(data, null, 2);
+  }
+}
+
+// Listener del formulario de reportes avanzados
+if (formReportesAvanzados && repAvDesde && repAvHasta) {
+  // Prellenar: últimos 7 días
+  const hoy = new Date();
+  const hastaISO = hoy.toISOString().slice(0, 10);
+  const dDesde = new Date(hoy);
+  dDesde.setDate(dDesde.getDate() - 7);
+  const desdeISO = dDesde.toISOString().slice(0, 10);
+
+  if (!repAvDesde.value) repAvDesde.value = desdeISO;
+  if (!repAvHasta.value) repAvHasta.value = hastaISO;
+
+  formReportesAvanzados.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+
+    const desde = repAvDesde.value || '';
+    const hasta = repAvHasta.value || '';
+
+    if (!desde || !hasta) {
+      alert('Debes indicar una fecha "Desde" y "Hasta".');
+      return;
+    }
+    if (desde > hasta) {
+      alert('La fecha "Desde" no puede ser mayor que "Hasta".');
+      return;
+    }
+
+    try {
+      const data = await fetchSalesReport(desde, hasta);
+      if (!data || !data.ok) {
+        alert('Error en el reporte: ' + (data && data.error ? data.error : 'desconocido'));
+        if (repAvDebugPre) {
+          repAvDebugPre.textContent = JSON.stringify(data, null, 2);
+        }
+        return;
+      }
+      renderSalesReport(data);
+    } catch (err) {
+      console.error(err);
+      alert('Error al cargar el reporte avanzado. Revisa la consola.');
     }
   });
 }
