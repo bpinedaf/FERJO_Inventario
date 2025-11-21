@@ -385,6 +385,123 @@
         <pre id="respResumenVentas" class="resp"></pre>
       </section>
 
+            <hr>
+
+      <!-- =========================
+           REPORTES AVANZADOS
+           ========================= -->
+      <h3>Reportes avanzados</h3>
+
+      <form id="formReportesAvanzados" class="reportes-form">
+        <div class="grid">
+          <label>Desde
+            <input type="date" id="repAvDesde" name="desde">
+          </label>
+          <label>Hasta
+            <input type="date" id="repAvHasta" name="hasta">
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit">Ver reporte</button>
+        </div>
+      </form>
+
+      <!-- Contenedor del resultado de reportes avanzados -->
+      <section id="repAvWrapper" style="margin-top:1rem; display:none;">
+
+        <!-- TOT. RANGO -->
+        <div id="repAvTotales" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem;">
+          <!-- tarjetas de totales -->
+        </div>
+
+        <!-- VENTAS POR DÍA -->
+        <details open style="margin-bottom:1.5rem;">
+          <summary style="cursor:pointer;font-weight:600;">Ventas por día</summary>
+          <div class="table-wrapper" style="margin-top:1rem;">
+            <table class="tabla" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Fecha</th>
+                  <th style="text-align:right;">Total día</th>
+                  <th style="text-align:right;">Contado</th>
+                  <th style="text-align:right;">Crédito</th>
+                  <th style="text-align:right;">Pagado</th>
+                  <th style="text-align:right;">Saldo</th>
+                </tr>
+              </thead>
+              <tbody id="repAvPorDiaBody">
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- TOP PRODUCTOS -->
+        <details open style="margin-bottom:1.5rem;">
+          <summary style="cursor:pointer;font-weight:600;">Top productos (por total vendido)</summary>
+          <div class="table-wrapper" style="margin-top:1rem;">
+            <table class="tabla" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Código</th>
+                  <th style="text-align:left;">Producto</th>
+                  <th style="text-align:right;">Cantidad</th>
+                  <th style="text-align:right;">Total neto</th>
+                </tr>
+              </thead>
+              <tbody id="repAvTopProdBody">
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- TOP CLIENTES -->
+        <details open style="margin-bottom:1.5rem;">
+          <summary style="cursor:pointer;font-weight:600;">Top clientes (por total comprado)</summary>
+          <div class="table-wrapper" style="margin-top:1rem;">
+            <table class="tabla" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Cliente</th>
+                  <th style="text-align:right;">Total neto</th>
+                  <th style="text-align:right;">Saldo pendiente</th>
+                </tr>
+              </thead>
+              <tbody id="repAvTopCliBody">
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- CUENTAS POR COBRAR -->
+        <details open style="margin-bottom:1.5rem;">
+          <summary style="cursor:pointer;font-weight:600;">Cuentas por cobrar en el rango</summary>
+          <div class="table-wrapper" style="margin-top:1rem;">
+            <table class="tabla" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Cliente</th>
+                  <th style="text-align:right;">Saldo pendiente total</th>
+                  <th style="text-align:right;">Ventas pendientes</th>
+                </tr>
+              </thead>
+              <tbody id="repAvCxcBody">
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- Debug opcional -->
+        <details>
+          <summary style="cursor:pointer;">Ver JSON crudo</summary>
+          <pre id="repAvDebug" class="resp"></pre>
+        </details>
+      </section>
+
+
     </section>
 
   </main>
