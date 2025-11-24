@@ -705,6 +705,242 @@ formVenta.addEventListener('submit', async (e)=>{
 });
 
 // ===================================================
+//                COMPRAS (módulo de compras)
+// ===================================================
+let compraItems = [];
+
+const formCompra            = document.getElementById('formCompra');
+const respCompra            = document.getElementById('respCompra');
+const compraItemsBody       = document.getElementById('compraItemsBody');
+const compraRespProducto    = document.getElementById('compraRespProducto');
+
+const inputCompraCodigo     = document.getElementById('compraCodigo');
+const inputCompraNombre     = document.getElementById('compraNombre');
+const inputCompraCostoUnit  = document.getElementById('compraCostoUnitario');
+const inputCompraCantidad   = document.getElementById('compraCantidad');
+const inputCompraPrecioSug  = document.getElementById('compraPrecioSugerido');
+const spanCompraTotalNeto   = document.getElementById('compraTotalNeto');
+
+// Campos de proveedor dentro del formCompra
+let inputProvId, inputProvNombre, inputProvTel, inputProvMail, inputTipoDoc, inputNumDoc, inputNotasCompra;
+if (formCompra) {
+  inputProvId     = formCompra.querySelector('[name="id_proveedor"]');
+  inputProvNombre = formCompra.querySelector('[name="proveedor_nombre"]');
+  inputProvTel    = formCompra.querySelector('[name="proveedor_telefono"]');
+  inputProvMail   = formCompra.querySelector('[name="proveedor_email"]');
+  inputTipoDoc    = formCompra.querySelector('[name="tipo_documento"]');
+  inputNumDoc     = formCompra.querySelector('[name="numero_documento"]');
+  inputNotasCompra= formCompra.querySelector('[name="notas"]');
+}
+
+// --- Helpers de compras ---
+function limpiarProductoCompra(){
+  if (inputCompraNombre)    inputCompraNombre.value = '';
+  if (inputCompraCostoUnit) inputCompraCostoUnit.value = '';
+  if (inputCompraPrecioSug) inputCompraPrecioSug.value = '';
+  if (inputCompraCantidad)  inputCompraCantidad.value = '1';
+  if (compraRespProducto)   compraRespProducto.textContent = '';
+}
+
+function renderCompraItems(){
+  if (!compraItemsBody) return;
+  compraItemsBody.innerHTML = '';
+  compraItems.forEach((it, idx)=>{
+    const subtotal = it.cantidad * it.costo_unitario;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${it.id_del_articulo}</td>
+      <td>${it.nombre}</td>
+      <td>${it.cantidad}</td>
+      <td>Q ${it.costo_unitario.toFixed(2)}</td>
+      <td>Q ${subtotal.toFixed(2)}</td>
+      <td><button type="button" class="compraRemoveItem" data-index="${idx}">✕</button></td>
+    `;
+    compraItemsBody.appendChild(tr);
+  });
+}
+
+function recomputeCompraTotals(){
+  let totalNeto = 0;
+  compraItems.forEach(it=>{
+    totalNeto += it.cantidad * it.costo_unitario;
+  });
+  if (spanCompraTotalNeto) {
+    spanCompraTotalNeto.textContent = totalNeto.toFixed(2);
+  }
+}
+
+function resetCompra(){
+  compraItems = [];
+  renderCompraItems();
+  recomputeCompraTotals();
+  if (respCompra) respCompra.textContent = '';
+  if (inputNotasCompra) inputNotasCompra.value = '';
+}
+
+// --- Buscar producto para compras ---
+async function buscarProductoCompra(){
+  const id = (inputCompraCodigo && inputCompraCodigo.value || '').trim();
+  if (!id){
+    alert('Ingresa un código de artículo');
+    return;
+  }
+  if (compraRespProducto) compraRespProducto.textContent = 'Buscando producto...';
+
+  const data = await getWithToken('product_fetch', { id });
+  if (!data || !data.ok || !data.product){
+    if (compraRespProducto) compraRespProducto.textContent = '❌ Producto no encontrado';
+    limpiarProductoCompra();
+    return;
+  }
+
+  const p = data.product;
+  const costo  = Number(p.costo || 0) || 0;
+  const precio = Number(p.precio_de_venta || 0) || 0;
+
+  if (inputCompraNombre)    inputCompraNombre.value = p.nombre || '';
+  if (inputCompraCostoUnit) inputCompraCostoUnit.value = costo ? costo.toFixed(2) : '';
+  if (inputCompraPrecioSug) inputCompraPrecioSug.value = precio ? precio.toFixed(2) : '';
+  if (inputCompraCantidad)  inputCompraCantidad.value = '1';
+
+  if (compraRespProducto){
+    compraRespProducto.textContent =
+      `✅ ${p.nombre} • Costo actual: ${costo ? 'Q ' + costo.toFixed(2) : '—'} • Precio de venta: ${precio ? 'Q ' + precio.toFixed(2) : '—'}`;
+  }
+}
+
+// Enter en código de compra
+if (inputCompraCodigo){
+  inputCompraCodigo.addEventListener('keydown', (ev)=>{
+    if (ev.key === 'Enter'){
+      ev.preventDefault();
+      buscarProductoCompra();
+    }
+  });
+}
+
+// Botón buscar producto (compras)
+const btnCompraBuscar = document.getElementById('btnCompraBuscarProducto');
+if (btnCompraBuscar){
+  btnCompraBuscar.addEventListener('click', ()=> buscarProductoCompra());
+}
+
+// --- Agregar item a la compra ---
+const btnCompraAgregarItem = document.getElementById('btnCompraAgregarItem');
+if (btnCompraAgregarItem){
+  btnCompraAgregarItem.addEventListener('click', ()=>{
+    const codigo = (inputCompraCodigo && inputCompraCodigo.value || '').trim();
+    const nombre = (inputCompraNombre && inputCompraNombre.value || '').trim();
+    const cant   = Number(inputCompraCantidad && inputCompraCantidad.value || 0);
+    const costo  = Number(inputCompraCostoUnit && inputCompraCostoUnit.value || 0);
+    const precioSug = Number(inputCompraPrecioSug && inputCompraPrecioSug.value || 0);
+
+    if (!codigo){
+      alert('Ingresa el código del artículo y búscalo primero.');
+      return;
+    }
+    if (!nombre){
+      alert('Primero busca el producto para cargar su nombre.');
+      return;
+    }
+    if (!cant || cant <= 0){
+      alert('La cantidad debe ser mayor que cero.');
+      return;
+    }
+    if (!costo || costo <= 0){
+      alert('El costo unitario debe ser mayor que cero.');
+      return;
+    }
+
+    compraItems.push({
+      id_del_articulo: codigo,
+      nombre,
+      cantidad: cant,
+      costo_unitario: costo,
+      precio_sugerido: precioSug || 0
+    });
+
+    renderCompraItems();
+    recomputeCompraTotals();
+
+    if (inputCompraCodigo) inputCompraCodigo.value = '';
+    limpiarProductoCompra();
+    if (inputCompraCodigo) inputCompraCodigo.focus();
+  });
+}
+
+// Eliminar item del listado de compras
+if (compraItemsBody){
+  compraItemsBody.addEventListener('click', (ev)=>{
+    const btn = ev.target.closest('.compraRemoveItem');
+    if (!btn) return;
+    const idx = Number(btn.dataset.index);
+    if (!isNaN(idx) && idx >= 0 && idx < compraItems.length){
+      compraItems.splice(idx,1);
+      renderCompraItems();
+      recomputeCompraTotals();
+    }
+  });
+}
+
+// --- Registrar compra (purchase_register) ---
+if (formCompra){
+  formCompra.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    if (respCompra) respCompra.textContent = '';
+
+    if (!compraItems.length){
+      alert('Agrega al menos un producto a la compra.');
+      return;
+    }
+
+    const fd = new FormData(formCompra);
+
+    const proveedor_nombre = (fd.get('proveedor_nombre') || '').trim();
+    if (!proveedor_nombre){
+      alert('El nombre del proveedor es obligatorio.');
+      return;
+    }
+
+    const payload = {
+      id_proveedor:       (fd.get('id_proveedor') || '').trim(),
+      proveedor_nombre,
+      proveedor_telefono: (fd.get('proveedor_telefono') || '').trim(),
+      proveedor_email:    (fd.get('proveedor_email') || '').trim(),
+      tipo_documento:     (fd.get('tipo_documento') || '').trim(),
+      numero_documento:   (fd.get('numero_documento') || '').trim(),
+      notas:              (fd.get('notas') || '').trim(),
+      items: compraItems.map(it => ({
+        id_del_articulo: it.id_del_articulo,
+        cantidad:        it.cantidad,
+        costo_unitario:  it.costo_unitario,
+        precio_sugerido: it.precio_sugerido
+      }))
+    };
+
+    appendResp(respCompra, { debug:'POST purchase_register', payload_preview: {
+      proveedor_nombre,
+      items: payload.items.length
+    }});
+
+    const out = await postJSONWithToken('purchase_register', payload);
+    showResp(respCompra, out);
+
+    if (out && out.ok){
+      const total = Number(out.total_neto || 0);
+      alert(
+        `Compra registrada correctamente.\n` +
+        `ID: ${out.id_compra}\n` +
+        `Total: Q ${total.toFixed(2)}`
+      );
+      resetCompra();
+    }
+  });
+}
+
+
+
+// ===================================================
 //        RESUMEN DE VENTAS DEL DÍA (sales_summary)
 // ===================================================
 const formResumenVentas = document.getElementById('formResumenVentas');
