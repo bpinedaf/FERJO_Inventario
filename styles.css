@@ -206,3 +206,19 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
 #chart-ventas-wrapper canvas {
   max-height: 100%;
 }
+/* Caja de la gráfica en el dashboard */
+.dash-chart-box {
+  margin-top: 1rem;
+}
+
+/* Limitar altura de la gráfica para que todo quepa sin tanto scroll */
+.dash-chart-box canvas {
+  max-height: 260px;
+}
+
+/* Si la pantalla es más alta, podemos darle un poquito más */
+@media (min-height: 800px) {
+  .dash-chart-box canvas {
+    max-height: 320px;
+  }
+}
