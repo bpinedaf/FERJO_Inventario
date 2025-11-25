@@ -71,13 +71,6 @@ function formatEntero(value) {
   return nfEnteroGT.format(num);
 }
 
-
-// 👉 Helper simple para formatear en Quetzales
-function formatQ(num){
-  const n = Number(num || 0);
-  return 'Q ' + n.toFixed(2);
-}
-
 // ---------- Helpers de Autenticación ----------
 function getToken(){
   return (window.AUTH && AUTH.token) || sessionStorage.getItem('FERJO_ID_TOKEN') || '';
@@ -1854,24 +1847,34 @@ async function cargarDashboard() {
   try {
     // 1. KPIs generales
     const stats = await getWithToken("dashboard_stats", {});
+
     if (stats && stats.ok) {
-      document.getElementById("kpiHoy").textContent = formatQ(kpi.hoy || 0);
-      document.getElementById("kpiMes").textContent =formatQ(kpi.mes || 0);
-      document.getElementById("kpiStockBajo").textContent =formatEntero(kpi.stock_bajo || 0);
-      document.getElementById("kpiInventario").textContent =formatQ(kpi.inventario_total || 0);
+      // Permitimos varias formas de respuesta: {hoy, mes,...} o {kpi:{...}}
+      const kpi = stats.kpi || stats.data || stats;
+
+      const ventaHoy   = kpi.venta_hoy   ?? kpi.hoy   ?? 0;
+      const ventaMes   = kpi.venta_mes   ?? kpi.mes   ?? 0;
+      const stockBajo  = kpi.stock_bajo  ?? 0;
+      const inventario = kpi.inventario_total ?? kpi.inventario ?? 0;
+
+      document.getElementById("kpiHoy").textContent        = formatQ(ventaHoy);
+      document.getElementById("kpiMes").textContent        = formatQ(ventaMes);
+      document.getElementById("kpiStockBajo").textContent  = formatEntero(stockBajo);
+      document.getElementById("kpiInventario").textContent = formatQ(inventario);
     }
 
     // 2. Últimos 7 días
     const ult7 = await getWithToken("dashboard_last7", {});
     if (ult7 && ult7.ok) {
-      renderChartUltimos7(ult7.data || []);
+      const serie = ult7.data || ult7.serie || [];
+      renderChartUltimos7(serie);
     }
 
     // 3. Últimas ventas
     const last = await getWithToken("dashboard_last_sales", {});
-    renderUltimasVentas(last && last.ok ? last.ventas : []);
-  }
-  catch (err) {
+    const lista = (last && last.ok && (last.ventas || last.data)) || [];
+    renderUltimasVentas(lista);
+  } catch (err) {
     console.error("Error en dashboard:", err);
   }
 }
@@ -1885,33 +1888,35 @@ function renderUltimasVentas(lista) {
     return;
   }
 
-  lista.forEach(v => {
+  lista.forEach(venta => {
+    const total = venta.total_neto ?? venta.total ?? 0;
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${v.hora || ""}</td>
-      <td>${v.cliente || ""}</td>
-      <td>${v.tipo_venta || ""}</td>
-      <td style="text-align:right;">${formatQ(venta.total_neto ?? venta.total)}</td>
+      <td>${venta.hora || ""}</td>
+      <td>${venta.cliente || ""}</td>
+      <td>${venta.tipo_venta || ""}</td>
+      <td style="text-align:right;">${formatQ(total)}</td>
     `;
     tbody.appendChild(tr);
   });
 }
 
 let chartUltimos7 = null;
+
 function renderChartUltimos7(data) {
-  const labels = data.map(d => d.fecha);
+  const labels  = data.map(d => d.fecha);
   const valores = data.map(d => d.total);
 
-  const canvas = document.getElementById("chartUltimos7");
-  if (!canvas) return;
+  const canvas = document.getElementById("chart-ventas-7d");
+  if (!canvas || typeof Chart === "undefined") return;
 
   const ctx = canvas.getContext("2d");
 
-  if (window.chartUltimos7) {
-    window.chartUltimos7.destroy();
+  if (chartUltimos7) {
+    chartUltimos7.destroy();
   }
 
-  window.chartUltimos7 = new Chart(ctx, {
+  chartUltimos7 = new Chart(ctx, {
     type: "line",
     data: {
       labels,
