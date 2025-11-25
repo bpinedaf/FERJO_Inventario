@@ -264,3 +264,27 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   box-shadow: 0 10px 18px rgba(15, 23, 42, 0.10);
   transition: all 0.15s ease-out;
 }
+
+/* Ventas hoy */
+.dash-card--ventas-hoy {
+  background: linear-gradient(135deg, #ecfdf3, #dcfce7); /* verde muy suave */
+  border-color: #bbf7d0;
+}
+
+/* Ventas mes */
+.dash-card--ventas-mes {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe); /* azul suave */
+  border-color: #bfdbfe;
+}
+
+/* Stock bajo */
+.dash-card--stock-bajo {
+  background: linear-gradient(135deg, #fef3c7, #fffbeb); /* amarillo suave */
+  border-color: #fde68a;
+}
+
+/* Inventario total */
+.dash-card--inventario {
+  background: linear-gradient(135deg, #f5f3ff, #ede9fe); /* morado suave */
+  border-color: #ddd6fe;
+}
