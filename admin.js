@@ -1848,33 +1848,28 @@ async function cargarDashboard() {
     // 1. KPIs generales
     const stats = await getWithToken("dashboard_stats", {});
 
-    if (stats && stats.ok) {
-      // Permitimos varias formas de respuesta: {hoy, mes,...} o {kpi:{...}}
-      const kpi = stats.kpi || stats.data || stats;
+    if (stats && stats.ok && stats.kpi) {
+      const kpi = stats.kpi;   // 👈 aquí tomamos los valores reales del backend
 
-      const ventaHoy   = kpi.venta_hoy   ?? kpi.hoy   ?? 0;
-      const ventaMes   = kpi.venta_mes   ?? kpi.mes   ?? 0;
-      const stockBajo  = kpi.stock_bajo  ?? 0;
-      const inventario = kpi.inventario_total ?? kpi.inventario ?? 0;
-
-      document.getElementById("kpiHoy").textContent        = formatQ(ventaHoy);
-      document.getElementById("kpiMes").textContent        = formatQ(ventaMes);
-      document.getElementById("kpiStockBajo").textContent  = formatEntero(stockBajo);
-      document.getElementById("kpiInventario").textContent = formatQ(inventario);
+      document.getElementById("kpiHoy").textContent        = formatQ(kpi.hoy || 0);
+      document.getElementById("kpiMes").textContent        = formatQ(kpi.mes || 0);
+      document.getElementById("kpiStockBajo").textContent  = formatEntero(kpi.stock_bajo || 0);
+      document.getElementById("kpiInventario").textContent = formatQ(kpi.inventario_total || 0);
+    } else {
+      console.warn("dashboard_stats sin kpi:", stats);
     }
 
     // 2. Últimos 7 días
     const ult7 = await getWithToken("dashboard_last7", {});
     if (ult7 && ult7.ok) {
-      const serie = ult7.data || ult7.serie || [];
-      renderChartUltimos7(serie);
+      renderChartUltimos7(ult7.data || []);
     }
 
     // 3. Últimas ventas
     const last = await getWithToken("dashboard_last_sales", {});
-    const lista = (last && last.ok && (last.ventas || last.data)) || [];
-    renderUltimasVentas(lista);
-  } catch (err) {
+    renderUltimasVentas(last && last.ok ? last.ventas : []);
+  }
+  catch (err) {
     console.error("Error en dashboard:", err);
   }
 }
