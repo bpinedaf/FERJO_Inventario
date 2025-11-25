@@ -1347,9 +1347,29 @@ const repAvTopCliBody       = document.getElementById('repAvTopCliBody');
 const repAvCxcBody          = document.getElementById('repAvCxcBody');
 const repAvDebugPre         = document.getElementById('repAvDebug');
 
+
+// ===================================================
+//   REPORTES AVANZADOS DE COMPRAS (purchases_report)
+// ===================================================
+const formReportesCompras = document.getElementById('formReportesCompras');
+const repCompDesde        = document.getElementById('repCompDesde');
+const repCompHasta        = document.getElementById('repCompHasta');
+const repCompWrapper      = document.getElementById('repCompWrapper');
+const repCompTotalesBox   = document.getElementById('repCompTotales');
+const repCompPorDiaBody   = document.getElementById('repCompPorDiaBody');
+const repCompTopProdBody  = document.getElementById('repCompTopProdBody');
+const repCompTopProvBody  = document.getElementById('repCompTopProvBody');
+const repCompDebugPre     = document.getElementById('repCompDebug');
+
+
 // Llamada al endpoint (reutilizamos getWithToken)
 async function fetchSalesReport(desde, hasta) {
   return await getWithToken('sales_report', { desde, hasta });
+}
+
+// Llamada al endpoint de COMPRAS
+async function fetchPurchasesReport(desde, hasta) {
+  return await getWithToken('purchases_report', { desde, hasta });
 }
 
 // Pintar el reporte avanzado
@@ -1566,6 +1586,154 @@ function renderSalesReport(data) {
   }
 }
 
+// Pintar el reporte avanzado de COMPRAS
+function renderPurchasesReport(data) {
+  if (!repCompWrapper) return;
+
+  repCompWrapper.style.display = 'block';
+
+  // --- Totales del rango de compras ---
+  if (repCompTotalesBox) {
+    repCompTotalesBox.innerHTML = '';
+    const t = data.totales || {};
+    const cards = [
+      { label: 'Total compras del rango', value: formatQ(t.total_rango) }
+    ];
+
+    cards.forEach(card => {
+      const div = document.createElement('div');
+      div.style.flex = '1 1 160px';
+      div.style.minWidth = '150px';
+      div.style.padding = '12px';
+      div.style.borderRadius = '10px';
+      div.style.border = '1px solid #ddd';
+      div.style.background = '#fafafa';
+
+      const label = document.createElement('div');
+      label.style.fontSize = '0.85rem';
+      label.style.color = '#555';
+      label.textContent = card.label;
+
+      const val = document.createElement('div');
+      val.style.fontSize = '1.1rem';
+      val.style.fontWeight = '600';
+      val.textContent = card.value;
+
+      div.appendChild(label);
+      div.appendChild(val);
+      repCompTotalesBox.appendChild(div);
+    });
+  }
+
+  // --- Compras por día ---
+  if (repCompPorDiaBody) {
+    repCompPorDiaBody.innerHTML = '';
+    const porDia = data.por_dia || [];
+
+    porDia.forEach(dia => {
+      const tr = document.createElement('tr');
+
+      const tdFecha = document.createElement('td');
+      tdFecha.textContent = dia.fecha;
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(dia.total_dia);
+
+      tr.appendChild(tdFecha);
+      tr.appendChild(tdTotal);
+      repCompPorDiaBody.appendChild(tr);
+    });
+
+    if (!porDia.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 2;
+      td.textContent = 'No hay compras en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repCompPorDiaBody.appendChild(tr);
+    }
+  }
+
+  // --- Top productos comprados ---
+  if (repCompTopProdBody) {
+    repCompTopProdBody.innerHTML = '';
+    const topP = data.top_productos || [];
+
+    topP.forEach(p => {
+      const tr = document.createElement('tr');
+
+      const tdCod = document.createElement('td');
+      tdCod.textContent = p.id_del_articulo || '';
+
+      const tdNom = document.createElement('td');
+      tdNom.textContent = p.nombre || '';
+
+      const tdCant = document.createElement('td');
+      tdCant.style.textAlign = 'right';
+      tdCant.textContent = p.cantidad != null ? p.cantidad : '';
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(p.total_neto);
+
+      tr.appendChild(tdCod);
+      tr.appendChild(tdNom);
+      tr.appendChild(tdCant);
+      tr.appendChild(tdTotal);
+      repCompTopProdBody.appendChild(tr);
+    });
+
+    if (!topP.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.textContent = 'No hay productos comprados en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repCompTopProdBody.appendChild(tr);
+    }
+  }
+
+  // --- Top proveedores ---
+  if (repCompTopProvBody) {
+    repCompTopProvBody.innerHTML = '';
+    const topProv = data.top_proveedores || [];
+
+    topProv.forEach(pv => {
+      const tr = document.createElement('tr');
+
+      const tdNom = document.createElement('td');
+      tdNom.textContent = pv.nombre || pv.id_proveedor || '';
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(pv.total_neto);
+
+      tr.appendChild(tdNom);
+      tr.appendChild(tdTotal);
+      repCompTopProvBody.appendChild(tr);
+    });
+
+    if (!topProv.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 2;
+      td.textContent = 'No hay proveedores con compras en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repCompTopProvBody.appendChild(tr);
+    }
+  }
+
+  // --- Debug JSON de compras ---
+  if (repCompDebugPre) {
+    repCompDebugPre.textContent = JSON.stringify(data, null, 2);
+  }
+}
+
+
 // Listener del formulario de reportes avanzados
 if (formReportesAvanzados && repAvDesde && repAvHasta) {
   // Prellenar: últimos 7 días
@@ -1609,3 +1777,48 @@ if (formReportesAvanzados && repAvDesde && repAvHasta) {
     }
   });
 }
+
+// Listener del formulario de reportes avanzados de COMPRAS
+if (formReportesCompras && repCompDesde && repCompHasta) {
+  // Prellenar: últimos 7 días también
+  const hoy = new Date();
+  const hastaISO = hoy.toISOString().slice(0, 10);
+  const dDesde = new Date(hoy);
+  dDesde.setDate(dDesde.getDate() - 7);
+  const desdeISO = dDesde.toISOString().slice(0, 10);
+
+  if (!repCompDesde.value) repCompDesde.value = desdeISO;
+  if (!repCompHasta.value) repCompHasta.value = hastaISO;
+
+  formReportesCompras.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+
+    const desde = repCompDesde.value || '';
+    const hasta = repCompHasta.value || '';
+
+    if (!desde || !hasta) {
+      alert('Debes indicar una fecha "Desde" y "Hasta" para compras.');
+      return;
+    }
+    if (desde > hasta) {
+      alert('La fecha "Desde" no puede ser mayor que "Hasta".');
+      return;
+    }
+
+    try {
+      const data = await fetchPurchasesReport(desde, hasta);
+      if (!data || !data.ok) {
+        alert('Error en el reporte de compras: ' + (data && data.error ? data.error : 'desconocido'));
+        if (repCompDebugPre) {
+          repCompDebugPre.textContent = JSON.stringify(data, null, 2);
+        }
+        return;
+      }
+      renderPurchasesReport(data);
+    } catch (err) {
+      console.error(err);
+      alert('Error al cargar el reporte de compras. Revisa la consola.');
+    }
+  });
+}
+
