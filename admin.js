@@ -1843,6 +1843,10 @@ if (formReportesCompras && repCompDesde && repCompHasta) {
 //                  DASHBOARD PRINCIPAL
 // ===================================================
 
+// ===================================================
+//                  DASHBOARD PRINCIPAL
+// ===================================================
+
 async function cargarDashboard() {
   try {
     // 1. KPIs generales
@@ -1894,7 +1898,6 @@ function renderUltimasVentas(lista) {
     tbody.appendChild(tr);
   });
 }
-
 
 let chartUltimos7 = null;
 
