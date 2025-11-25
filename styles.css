@@ -198,3 +198,11 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   border-radius: 14px;
   border: 1px solid #e5e5e5;
 }
+#chart-ventas-wrapper {
+  height: 260px;
+  max-height: 260px;
+}
+
+#chart-ventas-wrapper canvas {
+  max-height: 100%;
+}
