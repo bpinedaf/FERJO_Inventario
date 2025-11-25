@@ -1883,18 +1883,18 @@ function renderUltimasVentas(lista) {
     return;
   }
 
-  lista.forEach(venta => {
-    const total = venta.total_neto ?? venta.total ?? 0;
+  lista.forEach(v => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${venta.hora || ""}</td>
-      <td>${venta.cliente || ""}</td>
-      <td>${venta.tipo_venta || ""}</td>
-      <td style="text-align:right;">${formatQ(total)}</td>
+      <td>${v.hora || ""}</td>
+      <td>${v.cliente || ""}</td>
+      <td>${v.tipo_venta || ""}</td>
+      <td style="text-align:right;">${formatQ(v.total_neto ?? v.total)}</td>
     `;
     tbody.appendChild(tr);
   });
 }
+
 
 let chartUltimos7 = null;
 
