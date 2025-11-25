@@ -821,6 +821,41 @@ async function buscarProveedorPorId(){
   }
 }
 
+// --- Guardar / actualizar proveedor (supplier_upsert) ---
+const btnCompraGuardarProveedor = document.getElementById('btnCompraGuardarProveedor');
+
+if (btnCompraGuardarProveedor && formCompra){
+  btnCompraGuardarProveedor.addEventListener('click', async ()=>{
+    if (respProveedorCompra) respProveedorCompra.textContent = '';
+
+    const fd = new FormData(formCompra);
+    const payload = {
+      id_proveedor: fd.get('id_proveedor') || '',
+      nombre:       fd.get('proveedor_nombre') || '',
+      telefono:     fd.get('proveedor_telefono') || '',
+      email:        fd.get('proveedor_email') || '',
+      notas:        fd.get('notas') || ''
+    };
+
+    if (!payload.nombre){
+      alert('El nombre del proveedor es obligatorio para guardarlo.');
+      return;
+    }
+
+    if (respProveedorCompra){
+      appendResp(respProveedorCompra, { debug:'POST supplier_upsert', payload });
+    }
+
+    const out = await postWithToken('supplier_upsert', payload);
+    if (respProveedorCompra){
+      showResp(respProveedorCompra, out);
+    }
+
+    if (out && out.ok && out.id_proveedor){
+      if (inputProvId) inputProvId.value = out.id_proveedor;
+    }
+  });
+}
 
 function recomputeCompraTotals(){
   let totalNeto = 0;
