@@ -1855,17 +1855,10 @@ async function cargarDashboard() {
     // 1. KPIs generales
     const stats = await getWithToken("dashboard_stats", {});
     if (stats && stats.ok) {
-      document.getElementById("kpiHoy").textContent =
-        "Q " + Number(stats.ventas_hoy||0).toFixed(2);
-
-      document.getElementById("kpiMes").textContent =
-        "Q " + Number(stats.ventas_mes||0).toFixed(2);
-
-      document.getElementById("kpiStockBajo").textContent =
-        stats.stock_bajo || 0;
-
-      document.getElementById("kpiInventario").textContent =
-        "Q " + Number(stats.inventario_total||0).toFixed(2);
+      document.getElementById("kpiHoy").textContent = formatQ(kpi.hoy || 0);
+      document.getElementById("kpiMes").textContent =formatQ(kpi.mes || 0);
+      document.getElementById("kpiStockBajo").textContent =formatEntero(kpi.stock_bajo || 0);
+      document.getElementById("kpiInventario").textContent =formatQ(kpi.inventario_total || 0);
     }
 
     // 2. Últimos 7 días
@@ -1898,7 +1891,7 @@ function renderUltimasVentas(lista) {
       <td>${v.hora || ""}</td>
       <td>${v.cliente || ""}</td>
       <td>${v.tipo_venta || ""}</td>
-      <td style="text-align:right;">Q ${Number(v.total_neto||0).toFixed(2)}</td>
+      <td style="text-align:right;">${formatQ(venta.total_neto ?? venta.total)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -1909,32 +1902,51 @@ function renderChartUltimos7(data) {
   const labels = data.map(d => d.fecha);
   const valores = data.map(d => d.total);
 
-  // Buscar el canvas con el nuevo id
-  const canvas = document.getElementById("chart-ventas-7d");
-  if (!canvas) {
-    console.warn("No se encontró el canvas chart-ventas-7d");
-    return;
-  }
+  const canvas = document.getElementById("chartUltimos7");
+  if (!canvas) return;
+
   const ctx = canvas.getContext("2d");
 
-  if (chartUltimos7) chartUltimos7.destroy();
+  if (window.chartUltimos7) {
+    window.chartUltimos7.destroy();
+  }
 
-  chartUltimos7 = new Chart(ctx, {
+  window.chartUltimos7 = new Chart(ctx, {
     type: "line",
     data: {
       labels,
       datasets: [{
         label: "Ventas (Q)",
         data: valores,
-        borderWidth: 2
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHitRadius: 8
       }]
     },
     options: {
       responsive: true,
-      tension: 0.4
+      tension: 0.3,
+      scales: {
+        y: {
+          ticks: {
+            callback: (value) => formatQ(value)
+          }
+        }
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `Ventas: ${formatQ(ctx.parsed.y)}`
+          }
+        },
+        legend: {
+          display: true
+        }
+      }
     }
   });
 }
+
 
 
 // Llamar dashboard al abrir la pestaña Inicio
