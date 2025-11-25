@@ -1842,25 +1842,28 @@ if (formReportesCompras && repCompDesde && repCompHasta) {
 // ===================================================
 //                  DASHBOARD PRINCIPAL
 // ===================================================
-
-// ===================================================
-//                  DASHBOARD PRINCIPAL
-// ===================================================
-
 async function cargarDashboard() {
   try {
     // 1. KPIs generales
     const stats = await getWithToken("dashboard_stats", {});
+    console.log("dashboard_stats:", stats); // opcional para ver el JSON
 
-    if (stats && stats.ok && stats.kpi) {
-      const kpi = stats.kpi;   // 👈 aquí tomamos los valores reales del backend
+    if (stats && stats.ok) {
+      // Soporta la estructura actual {ventas_hoy, ventas_mes, ...}
+      // y una futura estructura anidada en stats.kpi (por si luego la cambiamos)
+      const src = stats.kpi || stats;
 
-      document.getElementById("kpiHoy").textContent        = formatQ(kpi.hoy || 0);
-      document.getElementById("kpiMes").textContent        = formatQ(kpi.mes || 0);
-      document.getElementById("kpiStockBajo").textContent  = formatEntero(kpi.stock_bajo || 0);
-      document.getElementById("kpiInventario").textContent = formatQ(kpi.inventario_total || 0);
+      const ventasHoy       = src.ventas_hoy ?? src.hoy ?? 0;
+      const ventasMes       = src.ventas_mes ?? src.mes ?? 0;
+      const stockBajo       = src.stock_bajo ?? 0;
+      const inventarioTotal = src.inventario_total ?? 0;
+
+      document.getElementById("kpiHoy").textContent        = formatQ(ventasHoy);
+      document.getElementById("kpiMes").textContent        = formatQ(ventasMes);
+      document.getElementById("kpiStockBajo").textContent  = formatEntero(stockBajo);
+      document.getElementById("kpiInventario").textContent = formatQ(inventarioTotal);
     } else {
-      console.warn("dashboard_stats sin kpi:", stats);
+      console.warn("dashboard_stats sin datos válidos:", stats);
     }
 
     // 2. Últimos 7 días
