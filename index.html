@@ -51,13 +51,51 @@
 
     <!-- Tabs visibles según rol -->
     <nav class="tabs">
-      <button class="tab active" data-tab="productos"   data-roles="admin,productos">Productos</button>
+      <button class="tab active" data-tab="dashboard" data-roles="admin,ventas,inventario,productos,fotos">
+        Inicio
+      </button>
+      <button class="tab"          data-tab="productos"   data-roles="admin,productos">Productos</button>
       <button class="tab"          data-tab="fotos"      data-roles="admin,fotos">Fotos</button>
       <button class="tab"          data-tab="ventas"     data-roles="admin,ventas,inventario">Ventas</button>
-      <!-- NUEVA TAB: COMPRAS -->
       <button class="tab"          data-tab="compras"    data-roles="admin,inventario">Compras</button>
       <button class="tab"          data-tab="movimientos" data-roles="admin,inventario">Movimientos</button>
     </nav>
+    
+    <section id="dashboard" class="panel active" data-roles="admin,ventas,inventario,productos,fotos">
+      <h2>Dashboard — Resumen General</h2>
+    
+      <!-- Tarjetas KPI -->
+      <div id="dashCards" class="dash-cards">
+        <div class="dash-card"><h3>Ventas hoy</h3><p id="kpiHoy">—</p></div>
+        <div class="dash-card"><h3>Ventas mes</h3><p id="kpiMes">—</p></div>
+        <div class="dash-card"><h3>Stock bajo</h3><p id="kpiStockBajo">—</p></div>
+        <div class="dash-card"><h3>Inventario total</h3><p id="kpiInventario">—</p></div>
+      </div>
+    
+      <!-- Gráfica -->
+      <div class="dash-chart-box">
+        <h3>Ventas de los últimos 7 días</h3>
+        <canvas id="chartUltimos7"></canvas>
+      </div>
+    
+      <!-- Últimas ventas -->
+      <div class="dash-last-sales">
+        <h3>Últimas ventas registradas</h3>
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Cliente</th>
+              <th>Tipo</th>
+              <th style="text-align:right;">Total</th>
+            </tr>
+          </thead>
+          <tbody id="dashLastSalesBody">
+            <!-- dinámico -->
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <!-- Panel: Productos -->
     <section id="productos" class="panel active" data-roles="admin,productos">
