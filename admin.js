@@ -1884,7 +1884,13 @@ function renderChartUltimos7(data) {
   const labels = data.map(d => d.fecha);
   const valores = data.map(d => d.total);
 
-  const ctx = document.getElementById("chartUltimos7").getContext("2d");
+  // Buscar el canvas con el nuevo id
+  const canvas = document.getElementById("chart-ventas-7d");
+  if (!canvas) {
+    console.warn("No se encontró el canvas chart-ventas-7d");
+    return;
+  }
+  const ctx = canvas.getContext("2d");
 
   if (chartUltimos7) chartUltimos7.destroy();
 
@@ -1904,6 +1910,7 @@ function renderChartUltimos7(data) {
     }
   });
 }
+
 
 // Llamar dashboard al abrir la pestaña Inicio
 document.querySelector('[data-tab="dashboard"]')
