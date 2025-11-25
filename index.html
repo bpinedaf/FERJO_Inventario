@@ -612,6 +612,97 @@
       </section>
     </section>
 
+          <!-- =========================
+           REPORTES AVANZADOS DE COMPRAS
+           ========================= -->
+      <h3 style="margin-top:2rem;">Reportes avanzados de compras</h3>
+
+      <form id="formReportesCompras" class="reportes-form">
+        <div class="grid">
+          <label>Desde
+            <input type="date" id="repCompDesde" name="desde">
+          </label>
+          <label>Hasta
+            <input type="date" id="repCompHasta" name="hasta">
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit">Ver reporte de compras</button>
+        </div>
+      </form>
+
+      <!-- Contenedor del resultado de reportes avanzados de compras -->
+      <section id="repCompWrapper" style="margin-top:1rem; display:none;">
+
+        <!-- TOT. RANGO COMPRAS -->
+        <div id="repCompTotales" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem;">
+          <!-- tarjetas de totales de compras -->
+        </div>
+
+        <!-- COMPRAS POR DÍA -->
+        <details open style="margin-bottom:1.5rem;">
+          <summary style="cursor:pointer;font-weight:600;">Compras por día</summary>
+          <div class="table-wrapper" style="margin-top:1rem;">
+            <table class="tabla" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Fecha</th>
+                  <th style="text-align:right;">Total día</th>
+                </tr>
+              </thead>
+              <tbody id="repCompPorDiaBody">
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- TOP PRODUCTOS COMPRADOS -->
+        <details open style="margin-bottom:1.5rem;">
+          <summary style="cursor:pointer;font-weight:600;">Top productos comprados</summary>
+          <div class="table-wrapper" style="margin-top:1rem;">
+            <table class="tabla" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Código</th>
+                  <th style="text-align:left;">Producto</th>
+                  <th style="text-align:right;">Cantidad</th>
+                  <th style="text-align:right;">Total comprado</th>
+                </tr>
+              </thead>
+              <tbody id="repCompTopProdBody">
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- TOP PROVEEDORES -->
+        <details open style="margin-bottom:1.5rem;">
+          <summary style="cursor:pointer;font-weight:600;">Top proveedores</summary>
+          <div class="table-wrapper" style="margin-top:1rem;">
+            <table class="tabla" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Proveedor</th>
+                  <th style="text-align:right;">Total comprado</th>
+                </tr>
+              </thead>
+              <tbody id="repCompTopProvBody">
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- Debug opcional -->
+        <details>
+          <summary style="cursor:pointer;">Ver JSON crudo (compras)</summary>
+          <pre id="repCompDebug" class="resp"></pre>
+        </details>
+      </section>
+
+
   </main>
 
   <footer>
