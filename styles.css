@@ -154,3 +154,47 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   padding: 4px 10px;
   font-size: 0.85rem;
 }
+
+/* ===== DASHBOARD ===== */
+.dash-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.dash-card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 2px 4px rgba(0,0,0,.05);
+}
+
+.dash-card h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #444;
+}
+
+.dash-card p {
+  margin: 10px 0 0 0;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.dash-chart-box {
+  margin: 32px 0;
+  background: #fff;
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px solid #e5e5e5;
+}
+
+.dash-last-sales {
+  margin-top: 32px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px solid #e5e5e5;
+}
