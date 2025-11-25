@@ -713,6 +713,9 @@ const formCompra            = document.getElementById('formCompra');
 const respCompra            = document.getElementById('respCompra');
 const compraItemsBody       = document.getElementById('compraItemsBody');
 const compraRespProducto    = document.getElementById('compraRespProducto');
+// Si existe un <pre id="respProveedorCompra"> lo usamos, si no, usamos respCompra como fallback
+const respProveedorCompra = document.getElementById('respProveedorCompra') || respCompra;
+
 
 const inputCompraCodigo     = document.getElementById('compraCodigo');
 const inputCompraNombre     = document.getElementById('compraNombre');
@@ -732,6 +735,21 @@ if (formCompra) {
   inputNumDoc     = formCompra.querySelector('[name="numero_documento"]');
   inputNotasCompra= formCompra.querySelector('[name="notas"]');
 }
+
+// Buscar proveedor al usar el campo ID (igual que clientes)
+if (inputProvId){
+  inputProvId.addEventListener('keydown', (ev)=>{
+    if (ev.key === 'Enter'){
+      ev.preventDefault();
+      buscarProveedorPorId();
+    }
+  });
+
+  inputProvId.addEventListener('blur', ()=>{
+    buscarProveedorPorId();
+  });
+}
+
 
 // --- Helpers de compras ---
 function limpiarProductoCompra(){
@@ -759,6 +777,50 @@ function renderCompraItems(){
     compraItemsBody.appendChild(tr);
   });
 }
+
+// --- Helpers de proveedor (compras) ---
+function rellenarProveedorCompra(prov){
+  if (!formCompra) return;
+  if (!prov) prov = {};
+
+  if (inputProvId)     inputProvId.value     = prov.id_proveedor || '';
+  if (inputProvNombre) inputProvNombre.value = prov.nombre || prov.proveedor_nombre || '';
+  if (inputProvTel)    inputProvTel.value    = prov.telefono || prov.proveedor_telefono || '';
+  if (inputProvMail)   inputProvMail.value   = prov.email || prov.proveedor_email || '';
+}
+
+// Buscar proveedor por ID (código del proveedor)
+async function buscarProveedorPorId(){
+  if (!inputProvId) return;
+
+  const id = (inputProvId.value || '').trim();
+  if (!id){
+    // Si se borra el campo, no hacemos nada
+    return;
+  }
+
+  if (respProveedorCompra) {
+    respProveedorCompra.textContent = '';
+    appendResp(respProveedorCompra, { debug:'GET supplier_fetch', id_proveedor: id });
+  }
+
+  const data = await getWithToken('supplier_fetch', { id_proveedor: id });
+
+  if (!data || !data.ok || !data.supplier){
+    if (respProveedorCompra){
+      showResp(respProveedorCompra, data || { error:'Proveedor no encontrado' });
+    }
+    // Prellenamos solo el id y dejamos los otros vacíos para que el usuario los escriba
+    rellenarProveedorCompra({ id_proveedor: id, nombre:'', telefono:'', email:'' });
+    return;
+  }
+
+  rellenarProveedorCompra(data.supplier);
+  if (respProveedorCompra){
+    showResp(respProveedorCompra, data);
+  }
+}
+
 
 function recomputeCompraTotals(){
   let totalNeto = 0;
