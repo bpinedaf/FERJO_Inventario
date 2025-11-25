@@ -1821,4 +1821,94 @@ if (formReportesCompras && repCompDesde && repCompHasta) {
     }
   });
 }
+// ===================================================
+//                  DASHBOARD PRINCIPAL
+// ===================================================
+
+async function cargarDashboard() {
+  try {
+    // 1. KPIs generales
+    const stats = await getWithToken("dashboard_stats", {});
+    if (stats && stats.ok) {
+      document.getElementById("kpiHoy").textContent =
+        "Q " + Number(stats.ventas_hoy||0).toFixed(2);
+
+      document.getElementById("kpiMes").textContent =
+        "Q " + Number(stats.ventas_mes||0).toFixed(2);
+
+      document.getElementById("kpiStockBajo").textContent =
+        stats.stock_bajo || 0;
+
+      document.getElementById("kpiInventario").textContent =
+        "Q " + Number(stats.inventario_total||0).toFixed(2);
+    }
+
+    // 2. Últimos 7 días
+    const ult7 = await getWithToken("dashboard_last7", {});
+    if (ult7 && ult7.ok) {
+      renderChartUltimos7(ult7.data || []);
+    }
+
+    // 3. Últimas ventas
+    const last = await getWithToken("dashboard_last_sales", {});
+    renderUltimasVentas(last && last.ok ? last.ventas : []);
+  }
+  catch (err) {
+    console.error("Error en dashboard:", err);
+  }
+}
+
+function renderUltimasVentas(lista) {
+  const tbody = document.getElementById("dashLastSalesBody");
+  tbody.innerHTML = "";
+
+  if (!lista || !lista.length) {
+    tbody.innerHTML = `<tr><td colspan="4">Sin ventas recientes</td></tr>`;
+    return;
+  }
+
+  lista.forEach(v => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${v.hora || ""}</td>
+      <td>${v.cliente || ""}</td>
+      <td>${v.tipo_venta || ""}</td>
+      <td style="text-align:right;">Q ${Number(v.total_neto||0).toFixed(2)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+let chartUltimos7 = null;
+function renderChartUltimos7(data) {
+  const labels = data.map(d => d.fecha);
+  const valores = data.map(d => d.total);
+
+  const ctx = document.getElementById("chartUltimos7").getContext("2d");
+
+  if (chartUltimos7) chartUltimos7.destroy();
+
+  chartUltimos7 = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Ventas (Q)",
+        data: valores,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      tension: 0.4
+    }
+  });
+}
+
+// Llamar dashboard al abrir la pestaña Inicio
+document.querySelector('[data-tab="dashboard"]')
+  .addEventListener("click", cargarDashboard);
+
+// Carga inicial al iniciar sesión
+setTimeout(cargarDashboard, 800);
 
