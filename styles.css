@@ -199,8 +199,8 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   border: 1px solid #e5e5e5;
 }
 #chart-ventas-wrapper {
-  height: 260px;
-  max-height: 260px;
+  height: 220px;
+  max-height: 220px;
 }
 
 #chart-ventas-wrapper canvas {
@@ -221,4 +221,46 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   .dash-chart-box canvas {
     max-height: 320px;
   }
+}
+/* Contenedor de las tarjetas */
+.dash-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* Tarjeta base */
+.dash-card {
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;              /* gris muy claro */
+  background: linear-gradient(135deg, #fafafa, #f3f4f6);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06); /* sombra suave */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Título de la tarjeta */
+.dash-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #4b5563; /* gris medio */
+}
+
+/* Valor principal */
+.dash-card p {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #111827; /* casi negro */
+}
+
+/* Pequeño efecto al pasar el mouse */
+.dash-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.10);
+  transition: all 0.15s ease-out;
 }
