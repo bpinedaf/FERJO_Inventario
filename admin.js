@@ -47,6 +47,31 @@ async function fetchJSON(url, opts={}){
   }
 }
 
+// =========================
+// Helpers de formato numérico
+// =========================
+const nfEnteroGT = new Intl.NumberFormat("es-GT", {
+  maximumFractionDigits: 0
+});
+
+const nfDecimalGT = new Intl.NumberFormat("es-GT", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+
+// Q 1,234.56
+function formatQ(value) {
+  const num = Number(value) || 0;
+  return "Q " + nfDecimalGT.format(num);
+}
+
+// Solo número con separador de miles: 1,234
+function formatEntero(value) {
+  const num = Number(value) || 0;
+  return nfEnteroGT.format(num);
+}
+
+
 // 👉 Helper simple para formatear en Quetzales
 function formatQ(num){
   const n = Number(num || 0);
