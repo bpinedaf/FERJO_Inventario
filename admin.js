@@ -1962,3 +1962,51 @@ document.querySelector('[data-tab="dashboard"]')
 // Carga inicial al iniciar sesión
 setTimeout(cargarDashboard, 800);
 
+// ===============================================
+//    CONTROL DE TAB INICIAL SEGÚN ROLES
+// ===============================================
+
+// Esta función será llamada desde auth.js cuando
+// ya conozcamos los roles del usuario.
+window.activarTabInicial = function(roles) {
+  if (!Array.isArray(roles)) return;
+
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+
+  let tabSeleccionado = null;
+
+  // 1) Si el usuario es admin → Dashboard
+  if (roles.includes('admin')) {
+    tabSeleccionado = tabs.find(btn => btn.dataset.tab === 'dashboard');
+  }
+
+  // 2) Si no es admin → primer tab permitido según data-roles
+  if (!tabSeleccionado) {
+    tabSeleccionado = tabs.find(btn => {
+      const allowed = (btn.dataset.roles || '')
+        .split(',')
+        .map(r => r.trim())
+        .filter(Boolean);
+      return roles.some(r => allowed.includes(r));
+    });
+  }
+
+  if (!tabSeleccionado) return;
+
+  const tabName = tabSeleccionado.dataset.tab;
+
+  // Activar el tab correcto
+  tabs.forEach(btn => {
+    btn.classList.toggle('active', btn === tabSeleccionado);
+  });
+
+  // Activar solo el panel correspondiente
+  document.querySelectorAll('.panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === tabName);
+  });
+
+  // Si es el dashboard, cargarlo
+  if (tabName === 'dashboard') {
+    setTimeout(cargarDashboard, 300);
+  }
+};
