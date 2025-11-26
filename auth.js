@@ -63,6 +63,10 @@ async function validateTokenAndLoadProfile(idToken){
 
   applyRoleVisibility();
   showProtectedUI(true); // <- mostrar contenido protegido al validar
+  // Activar el tab inicial según roles (dashboard si es admin)
+  if (window.activarTabInicial) {
+    activarTabInicial(AUTH.roles);
+  }
 }
 
 // ---- Callback de Google Identity Services ----
