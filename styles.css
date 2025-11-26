@@ -1,56 +1,328 @@
-*{box-sizing:border-box}html,body{height:100%}body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:#f8f9fb;color:#111}
-header{background:#111;color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-h1{font-size:1.25rem;margin:0}
-.api-box{display:flex;align-items:center;gap:8px}
-.api-box input{min-width:360px;padding:10px;border-radius:10px;border:1px solid #444}
-.api-box button{padding:10px 12px;border:0;border-radius:10px;background:#fff;color:#111;cursor:pointer}
-.api-box #apiStatus{opacity:.8;font-size:.9rem}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
 
-.tabs{display:flex;gap:8px;background:#fff;padding:8px 12px;border-bottom:1px solid #eee;position:sticky;top:0;z-index:9}
-.tab{padding:10px 14px;border:1px solid #ddd;background:#fff;border-radius:10px;cursor:pointer}
-.tab.active{background:#111;color:#fff;border-color:#111}
-
-.panel{display:none;padding:16px 24px}
-.panel.active{display:block}
-
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:8px 0 16px}
-label{display:flex;flex-direction:column;gap:6px;font-size:.95rem}
-input,select,textarea{padding:10px;border-radius:10px;border:1px solid #ccc;background:#fff}
-.actions{display:flex;gap:8px}
-.actions button{padding:10px 12px;border:0;border-radius:10px;background:#111;color:#fff;cursor:pointer}
-.resp{background:#0b1020;color:#d4f2ff;padding:12px;border-radius:10px;white-space:pre-wrap}
-.help{color:#555;font-size:.9rem}
-
-footer{padding:20px;text-align:center;color:#666}
-/* Loader básico */
-.spinner {
-  display:inline-block; width:16px; height:16px;
-  border:2px solid #bbb; border-top-color: transparent;
-  border-radius:50%; animation: spin 0.9s linear infinite;
-  vertical-align: -2px;
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background: #f3f4f6;
+  color: #111827;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Botón deshabilitado */
-button[disabled] { opacity: .6; cursor: not-allowed; }
+/* Contenedor central */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
 
-.pie-legend {
-  margin-top: 8px;
+/* ===== HEADER ===== */
+header {
+  background: #111827;
+  color: #fff;
+  padding: 12px 0;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.header-left h1 {
+  font-size: 1.35rem;
+  margin: 0;
+}
+
+.header-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.header-right {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+/* Auth box */
+.auth-box {
+  background: rgba(15, 23, 42, 0.6);
+  padding: 8px 12px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.auth-message {
+  margin: 0 0 4px 0;
   font-size: 0.85rem;
 }
 
-.pie-legend-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+#signedIn span#whoami {
+  font-size: 0.9rem;
+  margin-right: 8px;
 }
 
-.pie-legend-color {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
+/* API Box */
+.api-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
 }
+
+.api-box label {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.api-box input {
+  min-width: 260px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background: #0f172a;
+  color: #e5e7eb;
+  font-size: 0.9rem;
+}
+
+.api-box input::placeholder {
+  color: #9ca3af;
+}
+
+.api-box button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #111827;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.api-box button:hover {
+  background: #ffffff;
+}
+
+.api-box #apiStatus {
+  opacity: 0.9;
+  font-size: 0.8rem;
+}
+
+/* ===== TABS ===== */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: transparent;
+  padding: 16px 0 8px 0;
+  position: sticky;
+  top: 0;
+  z-index: 9;
+}
+
+.tab {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #374151;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.tab:hover {
+  background: #f3f4f6;
+}
+
+.tab.active {
+  background: #111827;
+  color: #ffffff;
+  border-color: #111827;
+}
+
+/* ===== PANELS ===== */
+.panel {
+  display: none;
+  padding: 16px 0 32px 0;
+}
+
+.panel.active {
+  display: block;
+}
+
+.panel h2 {
+  margin: 0 0 8px 0;
+  font-size: 1.35rem;
+}
+
+.panel-subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+/* ===== GRID, FORMS, BUTTONS ===== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+input,
+select,
+textarea {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  font-size: 0.9rem;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #111827;
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.actions button {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.25);
+}
+
+.actions button:hover {
+  background: #020617;
+}
+
+.btn-secondary {
+  background: #e5e7eb;
+  color: #111827;
+  box-shadow: none;
+}
+
+.btn-secondary:hover {
+  background: #d1d5db;
+}
+
+/* Botón deshabilitado */
+button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Texto de ayuda */
+.help {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+/* Respuestas / consola */
+.resp {
+  background: #020617;
+  color: #d4f2ff;
+  padding: 12px;
+  border-radius: 10px;
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+/* ===== TABLAS ===== */
+.table-wrapper {
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.tabla thead {
+  background: #f9fafb;
+}
+
+.tabla th,
+.tabla td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tabla th {
+  text-align: left;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.tabla tbody tr:hover {
+  background: #f3f4f6;
+}
+
+/* ===== LOADER ===== */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #bbb;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  vertical-align: -2px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== VENTA / RESUMEN CARDS ===== */
 .resumen-section {
   margin-top: 12px;
 }
@@ -63,9 +335,10 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
 
 .venta-card {
   margin: 8px 0;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 4px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: #ffffff;
 }
 
 .venta-card > summary {
@@ -104,13 +377,13 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
 }
 
 .badge-contado {
-  background:#e5f5e0;
-  color:#1b7b34;
+  background: #e5f5e0;
+  color: #1b7b34;
 }
 
 .badge-credito {
-  background:#ffe6e6;
-  color:#b30000;
+  background: #ffe6e6;
+  color: #b30000;
 }
 
 .venta-sin-detalle {
@@ -128,7 +401,8 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
 .chart-box {
   max-width: 320px;
 }
-/* --- Resumen de ventas: resaltado de fila seleccionada --- */
+
+/* Resaltado de fila seleccionada en resumen de ventas */
 #detalle-ventas-body tr {
   cursor: pointer;
 }
@@ -141,7 +415,6 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   background-color: #ddeaff;
 }
 
-/* Botón pequeño en el detalle de venta */
 .detalle-venta-header {
   display: flex;
   align-items: center;
@@ -158,73 +431,6 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
 /* ===== DASHBOARD ===== */
 .dash-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.dash-card {
-  background: #fff;
-  padding: 20px;
-  border-radius: 14px;
-  border: 1px solid #e5e5e5;
-  box-shadow: 0 2px 4px rgba(0,0,0,.05);
-}
-
-.dash-card h3 {
-  margin: 0;
-  font-size: 1rem;
-  color: #444;
-}
-
-.dash-card p {
-  margin: 10px 0 0 0;
-  font-size: 1.6rem;
-  font-weight: 600;
-}
-
-.dash-chart-box {
-  margin: 32px 0;
-  background: #fff;
-  padding: 20px;
-  border-radius: 14px;
-  border: 1px solid #e5e5e5;
-}
-
-.dash-last-sales {
-  margin-top: 32px;
-  background: #fff;
-  padding: 20px;
-  border-radius: 14px;
-  border: 1px solid #e5e5e5;
-}
-#chart-ventas-wrapper {
-  height: 220px;
-  max-height: 220px;
-}
-
-#chart-ventas-wrapper canvas {
-  max-height: 100%;
-}
-/* Caja de la gráfica en el dashboard */
-.dash-chart-box {
-  margin-top: 1rem;
-}
-
-/* Limitar altura de la gráfica para que todo quepa sin tanto scroll */
-.dash-chart-box canvas {
-  max-height: 260px;
-}
-
-/* Si la pantalla es más alta, podemos darle un poquito más */
-@media (min-height: 800px) {
-  .dash-chart-box canvas {
-    max-height: 320px;
-  }
-}
-/* Contenedor de las tarjetas */
-.dash-cards {
-  display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 24px;
@@ -234,57 +440,98 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
 .dash-card {
   padding: 18px 20px;
   border-radius: 16px;
-  border: 1px solid #e5e7eb;              /* gris muy claro */
+  border: 1px solid #e5e7eb;
   background: linear-gradient(135deg, #fafafa, #f3f4f6);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06); /* sombra suave */
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
-/* Título de la tarjeta */
 .dash-card h3 {
   margin: 0 0 8px 0;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #4b5563; /* gris medio */
+  color: #4b5563;
 }
 
-/* Valor principal */
 .dash-card p {
   margin: 0;
   font-size: 1.6rem;
   font-weight: 700;
-  color: #111827; /* casi negro */
+  color: #111827;
 }
 
-/* Pequeño efecto al pasar el mouse */
 .dash-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 18px rgba(15, 23, 42, 0.10);
   transition: all 0.15s ease-out;
 }
 
-/* Ventas hoy */
+/* Variantes de color */
 .dash-card--ventas-hoy {
-  background: linear-gradient(135deg, #ecfdf3, #dcfce7); /* verde muy suave */
+  background: linear-gradient(135deg, #ecfdf3, #dcfce7);
   border-color: #bbf7d0;
 }
 
-/* Ventas mes */
 .dash-card--ventas-mes {
-  background: linear-gradient(135deg, #eff6ff, #dbeafe); /* azul suave */
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
   border-color: #bfdbfe;
 }
 
-/* Stock bajo */
 .dash-card--stock-bajo {
-  background: linear-gradient(135deg, #fef3c7, #fffbeb); /* amarillo suave */
+  background: linear-gradient(135deg, #fef3c7, #fffbeb);
   border-color: #fde68a;
 }
 
-/* Inventario total */
 .dash-card--inventario {
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe); /* morado suave */
+  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
   border-color: #ddd6fe;
+}
+
+/* Caja de la gráfica en el dashboard */
+.dash-chart-box,
+.dash-last-sales {
+  margin-top: 1rem;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
+}
+
+.dash-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dash-box-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Limitar altura de la gráfica */
+#chart-ventas-wrapper {
+  height: 220px;
+  max-height: 220px;
+}
+
+#chart-ventas-wrapper canvas {
+  max-height: 100%;
+}
+
+@media (min-height: 800px) {
+  #chart-ventas-wrapper canvas {
+    max-height: 320px;
+  }
+}
+
+/* ===== FOOTER ===== */
+footer {
+  padding: 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.85rem;
 }
