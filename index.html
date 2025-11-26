@@ -69,6 +69,8 @@
         <button class="tab" data-tab="ventas" data-roles="admin,ventas,inventario">Ventas</button>
         <button class="tab" data-tab="compras" data-roles="admin,inventario">Compras</button>
         <button class="tab" data-tab="movimientos" data-roles="admin,inventario">Movimientos</button>
+        <button class="tab" data-tab="reportes" data-roles="admin,reportes">Reportes</button>
+
       </nav>
       
       <!-- DASHBOARD -->
@@ -433,355 +435,332 @@
 
       <!-- Panel: Movimientos -->
       <section id="movimientos" class="panel" data-roles="admin,inventario">
-        <h2>Registrar movimiento</h2>
-        <form id="formMovimiento">
-          <div class="grid">
-            <label>Operación*
-              <select name="operacion" required>
-                <option value="venta">Venta (salida de inventario)</option>
-                <option value="compra">Compra (ingreso a inventario)</option>
-                <option value="ajuste">Ajuste de stock</option>
-              </select>
-            </label>
-          
-            <label>Id del artículo* <input name="id_del_articulo" required></label>
-
-            <label>Cantidad* <input name="cantidad" type="number" step="1" required></label>
-
-            <label>Precio unitario (venta)
-              <input name="precio_unitario" type="number" step="0.01" placeholder="Q 0.00">
-            </label>
-
-            <label>Costo unitario (compra)
-              <input name="costo_unitario" type="number" step="0.01" placeholder="Q 0.00">
-            </label>
-
-            <label>Motivo / referencia
-              <input name="motivo" placeholder="Factura, cliente, proveedor, etc.">
-            </label>
-
-            <label>Usuario
-              <input name="usuario" placeholder="Opcional, se puede dejar el correo">
-            </label>
-
-            <label>Observaciones
-              <input name="observaciones" placeholder="Notas adicionales">
-            </label>
-          </div>
-
-          <div class="actions">
-            <button type="submit">Registrar</button>
-          </div>
-          <pre id="respMovimiento" class="resp"></pre>
-        </form>
-
-        <h3>Generar comprobante (para salidas)</h3>
-        <form id="formRecibo">
-          <div class="grid">
-            <label>ID de movimiento* <input name="id_movimiento" placeholder="MOV-..." required></label>
-          </div>
-          <div class="actions">
-            <button type="submit">Generar PDF</button>
-          </div>
-          <pre id="respRecibo" class="resp"></pre>
-        </form>
-
-        <hr>
-
-        <!-- RESUMEN DE VENTAS DEL DÍA -->
-        <h3>Resumen de ventas del día</h3>
-        <form id="formResumenVentas">
-          <label for="fechaResumenVentas">Fecha:</label>
-          <input
-            type="date"
-            id="fechaResumenVentas"
-            name="fecha"  <!-- IMPORTANTE: name="fecha" -->
-          >
-          <button type="submit">Ver resumen</button>
-        </form>
-
-        <!-- Contenedor general del resumen -->
-        <section id="resumenVentasWrapper" style="margin-top:1rem;">
-
-          <!-- Totales del día (texto) -->
-          <div id="totales-dia"></div>
-
-          <!-- Bloque plegable para GRÁFICAS -->
-          <details id="charts-section" style="margin-top: 1.5rem;">
-            <summary style="cursor:pointer; font-weight:600;">
-              Ver gráficas del día
-            </summary>
-            <div class="charts-grid" style="margin-top:1rem; display:flex; flex-wrap:wrap; gap:24px;">
-              <div style="flex:1 1 260px; max-width:360px;">
-                <h4 style="margin-bottom:0.5rem;">Ventas contado vs crédito</h4>
-                <canvas id="chart-ventas"></canvas>
-              </div>
-              <div style="flex:1 1 260px; max-width:360px;">
-                <h4 style="margin-bottom:0.5rem;">Costo vs ganancia estimada</h4>
-                <canvas id="chart-margen"></canvas>
-              </div>
-            </div>
-          </details>
-
-          <!-- Bloque plegable para DETALLE DE VENTAS -->
-          <details id="detalle-section" style="margin-top: 1.5rem;">
-            <summary style="cursor:pointer; font-weight:600;">
-              Ver detalle de ventas
-            </summary>
-
-            <div class="table-wrapper" style="margin-top:1rem;">
-              <table id="detalle-ventas" class="tabla" style="width:100%; border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left;">Hora</th>
-                    <th style="text-align:left;">Cliente</th>
-                    <th style="text-align:left;">Tipo</th>
-                    <th style="text-align:right;">Total neto</th>
-                    <th style="text-align:right;">Pagado</th>
-                    <th style="text-align:right;">Saldo</th>
-                  </tr>
-                </thead>
-                <tbody id="detalle-ventas-body">
-                  <!-- filas dinámicas -->
-                </tbody>
-              </table>
-              <div id="venta-detalle-wrapper" style="margin-top:1rem; display:none;">
-                <h4 id="venta-detalle-titulo" style="margin-bottom:0.5rem;">
-                  Detalle de la venta
-                </h4>
-                <div class="table-wrapper">
-                  <table class="tabla" style="width:100%; border-collapse:collapse;">
-                    <thead>
-                      <tr>
-                        <th>Línea</th>
-                        <th>Código</th>
-                        <th>Producto</th>
-                        <th>Cant.</th>
-                        <th>Precio unit.</th>
-                        <th>Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody id="venta-detalle-body">
-                      <!-- filas dinámicas -->
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </details>
-
-          <!-- Debug opcional: respuesta cruda del API -->
-          <pre id="respResumenVentas" class="resp"></pre>
-        </section>
-
-        <hr>
-
-        <!-- =========================
-             REPORTES AVANZADOS
-             ========================= -->
-        <h3>Reportes avanzados de Ventas</h3>
-
-        <form id="formReportesAvanzados" class="reportes-form">
-          <div class="grid">
-            <label>Desde
-              <input type="date" id="repAvDesde" name="desde">
-            </label>
-            <label>Hasta
-              <input type="date" id="repAvHasta" name="hasta">
-            </label>
-          </div>
-          <div class="actions">
-            <button type="submit">Ver reporte</button>
-          </div>
-        </form>
-
-        <!-- Contenedor del resultado de reportes avanzados -->
-        <section id="repAvWrapper" style="margin-top:1rem; display:none;">
-
-          <!-- TOT. RANGO -->
-          <div id="repAvTotales" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem;">
-            <!-- tarjetas de totales -->
-          </div>
-
-          <!-- VENTAS POR DÍA -->
-          <details open style="margin-bottom:1.5rem;">
-            <summary style="cursor:pointer;font-weight:600;">Ventas por día</summary>
-            <div class="table-wrapper" style="margin-top:1rem;">
-              <table class="tabla" style="width:100%;border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left;">Fecha</th>
-                    <th style="text-align:right;">Total día</th>
-                    <th style="text-align:right;">Contado</th>
-                    <th style="text-align:right;">Crédito</th>
-                    <th style="text-align:right;">Pagado</th>
-                    <th style="text-align:right;">Saldo</th>
-                  </tr>
-                </thead>
-                <tbody id="repAvPorDiaBody">
-                  <!-- filas dinámicas -->
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-          <!-- TOP PRODUCTOS -->
-          <details open style="margin-bottom:1.5rem;">
-            <summary style="cursor:pointer;font-weight:600;">Top productos (por total vendido)</summary>
-            <div class="table-wrapper" style="margin-top:1rem;">
-              <table class="tabla" style="width:100%;border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left;">Código</th>
-                    <th style="text-align:left;">Producto</th>
-                    <th style="text-align:right;">Cantidad</th>
-                    <th style="text-align:right;">Total neto</th>
-                  </tr>
-                </thead>
-                <tbody id="repAvTopProdBody">
-                  <!-- filas dinámicas -->
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-          <!-- TOP CLIENTES -->
-          <details open style="margin-bottom:1.5rem;">
-            <summary style="cursor:pointer;font-weight:600;">Top clientes (por total comprado)</summary>
-            <div class="table-wrapper" style="margin-top:1rem;">
-              <table class="tabla" style="width:100%;border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left;">Cliente</th>
-                    <th style="text-align:right;">Total neto</th>
-                    <th style="text-align:right;">Saldo pendiente</th>
-                  </tr>
-                </thead>
-                <tbody id="repAvTopCliBody">
-                  <!-- filas dinámicas -->
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-          <!-- CUENTAS POR COBRAR -->
-          <details open style="margin-bottom:1.5rem;">
-            <summary style="cursor:pointer;font-weight:600;">Cuentas por cobrar en el rango</summary>
-            <div class="table-wrapper" style="margin-top:1rem;">
-              <table class="tabla" style="width:100%;border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left;">Cliente</th>
-                    <th style="text-align:right;">Saldo pendiente total</th>
-                    <th style="text-align:right;">Ventas pendientes</th>
-                  </tr>
-                </thead>
-                <tbody id="repAvCxcBody">
-                  <!-- filas dinámicas -->
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-          <!-- Debug opcional -->
-          <details>
-            <summary style="cursor:pointer;">Ver JSON crudo</summary>
-            <pre id="repAvDebug" class="resp"></pre>
-          </details>
-        </section>
-
-        <!-- =========================
-             REPORTES AVANZADOS DE COMPRAS
-             ========================= -->
-        <h3>Reportes avanzados de Compras</h3>
-
-        <form id="formReportesCompras" class="reportes-form">
-          <div class="grid">
-            <label>Desde
-              <input type="date" id="repCompDesde" name="desde">
-            </label>
-            <label>Hasta
-              <input type="date" id="repCompHasta" name="hasta">
-            </label>
-          </div>
-          <div class="actions">
-            <button type="submit">Ver reporte de compras</button>
-          </div>
-        </form>
-
-        <!-- Contenedor del resultado de reportes avanzados de compras -->
-        <section id="repCompWrapper" style="margin-top:1rem; display:none;">
-
-          <!-- TOT. RANGO COMPRAS -->
-          <div id="repCompTotales" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem;">
-            <!-- tarjetas de totales de compras -->
-          </div>
-
-          <!-- COMPRAS POR DÍA -->
-          <details open style="margin-bottom:1.5rem;">
-            <summary style="cursor:pointer;font-weight:600;">Compras por día</summary>
-            <div class="table-wrapper" style="margin-top:1rem;">
-              <table class="tabla" style="width:100%;border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left;">Fecha</th>
-                    <th style="text-align:right;">Total día</th>
-                  </tr>
-                </thead>
-                <tbody id="repCompPorDiaBody">
-                  <!-- filas dinámicas -->
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-          <!-- TOP PRODUCTOS COMPRADOS -->
-          <details open style="margin-bottom:1.5rem;">
-            <summary style="cursor:pointer;font-weight:600;">Top productos comprados</summary>
-            <div class="table-wrapper" style="margin-top:1rem;">
-              <table class="tabla" style="width:100%;border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left;">Código</th>
-                    <th style="text-align:left;">Producto</th>
-                    <th style="text-align:right;">Cantidad</th>
-                    <th style="text-align:right;">Total comprado</th>
-                  </tr>
-                </thead>
-                <tbody id="repCompTopProdBody">
-                  <!-- filas dinámicas -->
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-          <!-- TOP PROVEEDORES -->
-          <details open style="margin-bottom:1.5rem;">
-            <summary style="cursor:pointer;font-weight:600;">Top proveedores</summary>
-            <div class="table-wrapper" style="margin-top:1rem;">
-              <table class="tabla" style="width:100%;border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left;">Proveedor</th>
-                    <th style="text-align:right;">Total comprado</th>
-                  </tr>
-                </thead>
-                <tbody id="repCompTopProvBody">
-                  <!-- filas dinámicas -->
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-          <!-- Debug opcional -->
-          <details>
-            <summary style="cursor:pointer;">Ver JSON crudo (compras)</summary>
-            <pre id="repCompDebug" class="resp"></pre>
-          </details>
-        </section>
-      </section>
+      <h2>Registrar movimiento</h2>
+    
+      <form id="formMovimiento">
+        <div class="grid">
+          <label>Operación*
+            <select name="operacion" required>
+              <option value="venta">Venta (salida de inventario)</option>
+              <option value="compra">Compra (ingreso a inventario)</option>
+              <option value="ajuste">Ajuste de stock</option>
+            </select>
+          </label>
+    
+          <label>Id del artículo*
+            <input name="id_del_articulo" required>
+          </label>
+    
+          <label>Cantidad*
+            <input name="cantidad" type="number" step="1" required>
+          </label>
+    
+          <label>Precio unitario (venta)
+            <input name="precio_unitario" type="number" step="0.01" placeholder="Q 0.00">
+          </label>
+    
+          <label>Costo unitario (compra)
+            <input name="costo_unitario" type="number" step="0.01" placeholder="Q 0.00">
+          </label>
+    
+          <label>Motivo / referencia
+            <input name="motivo" placeholder="Factura, cliente, proveedor, etc.">
+          </label>
+    
+          <label>Usuario
+            <input name="usuario" placeholder="Opcional, se puede dejar el correo">
+          </label>
+    
+          <label>Observaciones
+            <input name="observaciones" placeholder="Notas adicionales">
+          </label>
+        </div>
+    
+        <div class="actions">
+          <button type="submit">Registrar</button>
+        </div>
+        <pre id="respMovimiento" class="resp"></pre>
+      </form>
+    
+      <hr>
+    
+      <h3>Generar comprobante (para salidas)</h3>
+      <form id="formRecibo">
+        <div class="grid">
+          <label>ID de movimiento*
+            <input name="id_movimiento" placeholder="MOV-..." required>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit">Generar PDF</button>
+        </div>
+        <pre id="respRecibo" class="resp"></pre>
+      </form>
+    </section>
 
     </div>
+    <section id="reportes" class="panel" data-roles="admin,reportes">
+    <h2>Reportes</h2>
+    <p class="panel-subtitle">Reportes avanzados de ventas y compras.</p>
+  
+    <!-- =========================
+        RESUMEN DE VENTAS DEL DÍA
+        ========================= -->
+    <h3>Resumen de ventas del día</h3>
+    <form id="formResumenVentas">
+      <label for="fechaResumenVentas">Fecha:</label>
+      <input type="date" id="fechaResumenVentas" name="fecha">
+      <button type="submit">Ver resumen</button>
+    </form>
+  
+    <section id="resumenVentasWrapper" style="margin-top:1rem;">
+      <div id="totales-dia"></div>
+  
+      <!-- GRÁFICAS -->
+      <details id="charts-section" style="margin-top:1.5rem;">
+        <summary style="cursor:pointer; font-weight:600;">
+          Ver gráficas del día
+        </summary>
+  
+        <div class="charts-grid" style="margin-top:1rem; display:flex; flex-wrap:wrap; gap:24px;">
+          <div style="flex:1 1 260px; max-width:360px;">
+            <h4>Ventas contado vs crédito</h4>
+            <canvas id="chart-ventas"></canvas>
+          </div>
+  
+          <div style="flex:1 1 260px; max-width:360px;">
+            <h4>Costo vs ganancia estimada</h4>
+            <canvas id="chart-margen"></canvas>
+          </div>
+        </div>
+      </details>
+  
+      <!-- DETALLE DE VENTAS -->
+      <details id="detalle-section" style="margin-top:1.5rem;">
+        <summary style="cursor:pointer; font-weight:600;">
+          Ver detalle de ventas
+        </summary>
+  
+        <div class="table-wrapper" style="margin-top:1rem;">
+          <table id="detalle-ventas" class="tabla">
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Cliente</th>
+                <th>Tipo</th>
+                <th style="text-align:right;">Total neto</th>
+                <th style="text-align:right;">Pagado</th>
+                <th style="text-align:right;">Saldo</th>
+              </tr>
+            </thead>
+            <tbody id="detalle-ventas-body"></tbody>
+          </table>
+  
+          <div id="venta-detalle-wrapper" style="margin-top:1rem; display:none;">
+            <h4 id="venta-detalle-titulo"></h4>
+            <div class="table-wrapper">
+              <table class="tabla">
+                <thead>
+                  <tr>
+                    <th>Línea</th>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th>Cant.</th>
+                    <th>Precio unit.</th>
+                    <th>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody id="venta-detalle-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </details>
+  
+      <!-- Debug opcional -->
+      <pre id="respResumenVentas" class="resp"></pre>
+    </section>
+  
+    <hr>
+  
+    <!-- =========================
+         REPORTES AVANZADOS
+         ========================= -->
+    <h3>Reportes avanzados de Ventas</h3>
+  
+    <form id="formReportesAvanzados" class="reportes-form">
+      <div class="grid">
+        <label>Desde
+          <input type="date" id="repAvDesde" name="desde">
+        </label>
+        <label>Hasta
+          <input type="date" id="repAvHasta" name="hasta">
+        </label>
+      </div>
+      <div class="actions">
+        <button type="submit">Ver reporte</button>
+      </div>
+    </form>
+  
+    <section id="repAvWrapper" style="margin-top:1rem; display:none;">
+      <div id="repAvTotales" style="display:flex; flex-wrap:wrap; gap:12px;"></div>
+  
+      <!-- Ventas por día -->
+      <details open>
+        <summary>Ventas por día</summary>
+        <div class="table-wrapper" style="margin-top:1rem;">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th style="text-align:right;">Total día</th>
+                <th style="text-align:right;">Contado</th>
+                <th style="text-align:right;">Crédito</th>
+                <th style="text-align:right;">Pagado</th>
+                <th style="text-align:right;">Saldo</th>
+              </tr>
+            </thead>
+            <tbody id="repAvPorDiaBody"></tbody>
+          </table>
+        </div>
+      </details>
+  
+      <!-- Top productos -->
+      <details open>
+        <summary>Top productos (por total vendido)</summary>
+        <div class="table-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th style="text-align:right;">Cantidad</th>
+                <th style="text-align:right;">Total neto</th>
+              </tr>
+            </thead>
+            <tbody id="repAvTopProdBody"></tbody>
+          </table>
+        </div>
+      </details>
+  
+      <!-- Top clientes -->
+      <details open>
+        <summary>Top clientes</summary>
+        <div class="table-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th style="text-align:right;">Total neto</th>
+                <th style="text-align:right;">Saldo pendiente</th>
+              </tr>
+            </thead>
+            <tbody id="repAvTopCliBody"></tbody>
+          </table>
+        </div>
+      </details>
+  
+      <!-- Cuentas por cobrar -->
+      <details open>
+        <summary>Cuentas por cobrar</summary>
+        <div class="table-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th style="text-align:right;">Saldo total</th>
+                <th style="text-align:right;">Ventas pendientes</th>
+              </tr>
+            </thead>
+            <tbody id="repAvCxcBody"></tbody>
+          </table>
+        </div>
+      </details>
+  
+      <details>
+        <summary>Ver JSON crudo</summary>
+        <pre id="repAvDebug" class="resp"></pre>
+      </details>
+    </section>
+  
+    <hr>
+  
+    <!-- =========================
+         REPORTES DE COMPRAS
+         ========================= -->
+    <h3>Reportes avanzados de Compras</h3>
+  
+    <form id="formReportesCompras" class="reportes-form">
+      <div class="grid">
+        <label>Desde
+          <input type="date" id="repCompDesde" name="desde">
+        </label>
+        <label>Hasta
+          <input type="date" id="repCompHasta" name="hasta">
+        </label>
+      </div>
+      <div class="actions">
+        <button type="submit">Ver reporte de compras</button>
+      </div>
+    </form>
+  
+    <section id="repCompWrapper" style="margin-top:1rem; display:none;">
+      <div id="repCompTotales" style="display:flex; flex-wrap:wrap; gap:12px;"></div>
+  
+      <details open>
+        <summary>Compras por día</summary>
+        <div class="table-wrapper" style="margin-top:1rem;">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody id="repCompPorDiaBody"></tbody>
+          </table>
+        </div>
+      </details>
+  
+      <details open>
+        <summary>Top productos comprados</summary>
+        <div class="table-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th style="text-align:right;">Cantidad</th>
+                <th style="text-align:right;">Total comprado</th>
+              </tr>
+            </thead>
+            <tbody id="repCompTopProdBody"></tbody>
+          </table>
+        </div>
+      </details>
+  
+      <details open>
+        <summary>Top proveedores</summary>
+        <div class="table-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Proveedor</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody id="repCompTopProvBody"></tbody>
+          </table>
+        </div>
+      </details>
+  
+      <details>
+        <summary>Ver JSON crudo (compras)</summary>
+        <pre id="repCompDebug" class="resp"></pre>
+      </details>
+    </section>
+  </section>
+
   </main>
 
   <footer>
