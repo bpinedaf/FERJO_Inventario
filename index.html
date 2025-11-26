@@ -14,747 +14,774 @@
 </head>
 <body>
   <header>
-    <h1>FERJO — Admin Inventarios</h1>
+    <div class="container header-inner">
+      <div class="header-left">
+        <h1>FERJO — Admin Inventarios</h1>
+        <p class="header-subtitle">
+          Panel de control para inventarios, ventas, compras y reportería.
+        </p>
+      </div>
 
-    <!-- Login / Perfil -->
-    <div id="authBox">
-      <!-- Estado: sin sesión -->
-      <div id="signedOut">
-        <p style="margin:0 0 8px 0;">Inicia sesión para continuar</p>
-        <div id="g_id_onload"
-             data-client_id="852782550488-5k5d6gj1fn7q7sbqdn7l532r7pgo5r2t.apps.googleusercontent.com"
-             data-context="signin"
-             data-callback="onCredentialResponse"
-             data-auto_prompt="false">
+      <div class="header-right">
+        <!-- Login / Perfil -->
+        <div id="authBox" class="auth-box">
+          <!-- Estado: sin sesión -->
+          <div id="signedOut">
+            <p class="auth-message">Inicia sesión para continuar</p>
+            <div id="g_id_onload"
+                 data-client_id="852782550488-5k5d6gj1fn7q7sbqdn7l532r7pgo5r2t.apps.googleusercontent.com"
+                 data-context="signin"
+                 data-callback="onCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+            <div class="g_id_signin" data-type="standard" data-size="large"></div>
+          </div>
+
+          <!-- Estado: con sesión -->
+          <div id="signedIn" style="display:none">
+            <span id="whoami"></span>
+            <button id="btnLogout" class="btn-secondary">Salir</button>
+          </div>
         </div>
-        <div class="g_id_signin" data-type="standard" data-size="large"></div>
-      </div>
 
-      <!-- Estado: con sesión -->
-      <div id="signedIn" style="display:none">
-        <span id="whoami"></span>
-        <button id="btnLogout">Salir</button>
+        <!-- Config API -->
+        <div class="api-box">
+          <label for="apiUrl">API URL</label>
+          <input id="apiUrl" placeholder="https://script.google.com/macros/s/XXX/exec">
+          <button id="saveApi">Guardar</button>
+          <span id="apiStatus"></span>
+        </div>
       </div>
-    </div>
-
-    <!-- Config API -->
-    <div class="api-box">
-      <label>API URL</label>
-      <input id="apiUrl" placeholder="https://script.google.com/macros/s/XXX/exec">
-      <button id="saveApi">Guardar</button>
-      <span id="apiStatus"></span>
     </div>
   </header>
 
   <!-- CONTENIDO PROTEGIDO: solo visible si hay sesión válida -->
   <main id="appMain" style="display:none">
+    <div class="container">
 
-    <!-- Tabs visibles según rol -->
-    <nav class="tabs">
-      <button class="tab active" data-tab="dashboard" data-roles="admin,ventas,inventario,productos,fotos">
-        Inicio
-      </button>
-      <button class="tab"          data-tab="productos"   data-roles="admin,productos">Productos</button>
-      <button class="tab"          data-tab="fotos"      data-roles="admin,fotos">Fotos</button>
-      <button class="tab"          data-tab="ventas"     data-roles="admin,ventas,inventario">Ventas</button>
-      <button class="tab"          data-tab="compras"    data-roles="admin,inventario">Compras</button>
-      <button class="tab"          data-tab="movimientos" data-roles="admin,inventario">Movimientos</button>
-    </nav>
-    
-    <section id="dashboard" class="panel active" data-roles="admin,ventas,inventario,productos,fotos">
-      <h2>Dashboard — Resumen General</h2>
-    
-      <!-- Tarjetas KPI -->
-      <div id="dashCards" class="dash-cards">
-        <div class="dash-card dash-card--ventas-hoy">
-          <h3>Ventas hoy</h3><p id="kpiHoy">—</p>
-        </div>
+      <!-- Tabs visibles según rol -->
+      <nav class="tabs">
+        <button class="tab active" data-tab="dashboard" data-roles="admin,ventas,inventario,productos,fotos">
+          Inicio
+        </button>
+        <button class="tab" data-tab="productos" data-roles="admin,productos">Productos</button>
+        <button class="tab" data-tab="fotos" data-roles="admin,fotos">Fotos</button>
+        <button class="tab" data-tab="ventas" data-roles="admin,ventas,inventario">Ventas</button>
+        <button class="tab" data-tab="compras" data-roles="admin,inventario">Compras</button>
+        <button class="tab" data-tab="movimientos" data-roles="admin,inventario">Movimientos</button>
+      </nav>
       
-        <div class="dash-card dash-card--ventas-mes">
-          <h3>Ventas mes</h3><p id="kpiMes">—</p>
-        </div>
-      
-        <div class="dash-card dash-card--stock-bajo">
-          <h3>Stock bajo</h3><p id="kpiStockBajo">—</p>
-        </div>
-      
-        <div class="dash-card dash-card--inventario">
-          <h3>Inventario total</h3><p id="kpiInventario">—</p>
-        </div>
-      </div>
-
-    
-            <!-- Gráfica -->
-      <div class="dash-chart-box">
-        <h3>Ventas de los últimos 7 días</h3>
-        <canvas id="chart-ventas-7d"></canvas>
-      </div>
-    
-      <!-- Últimas ventas -->
-      <div class="dash-last-sales">
-        <h3>Últimas ventas registradas</h3>
-        <table class="tabla">
-          <thead>
-            <tr>
-              <th>Hora</th>
-              <th>Cliente</th>
-              <th>Tipo</th>
-              <th style="text-align:right;">Total</th>
-            </tr>
-          </thead>
-          <tbody id="dashLastSalesBody">
-            <!-- dinámico -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Panel: Productos -->
-    <section id="productos" class="panel" data-roles="admin,productos">
-      <h2>Crear / Actualizar producto</h2>
-      <form id="formProducto">
-        <div class="grid">
-          <label>Id del artículo* <input name="id_del_articulo" required></label>
-          <label>Nombre* <input name="nombre" required></label>
-          <label>Categoría <input name="categoria"></label>
-          <label>Precio de venta* <input name="precio_de_venta" type="number" step="0.01" required></label>
-          <label>Cantidad <input name="cantidad" type="number" step="1"></label>
-          <label>Moneda <input name="moneda" value="GTQ"></label>
-          <label>Estado
-            <select name="status">
-              <option value="">(auto)</option>
-              <option value="activo">activo</option>
-              <option value="sin_stock">sin_stock</option>
-              <option value="inactivo">inactivo</option>
-            </select>
-          </label>
-          <label>Imagen (URL) <input name="image_url" placeholder="https://..."></label>
-          <label>Descripción <textarea name="descripcion" rows="3"></textarea></label>
-        </div>
-        <div class="actions">
-          <button type="submit" id="btnGuardarProducto">Guardar producto</button>
-          <button type="button" id="cargarProducto">Cargar por ID</button>
-        </div>
-        <p class="help">
-          Este formulario usa <code>POST /exec?path=product_upsert</code> y
-          <code>GET /exec?path=product_fetch</code>.
-        </p>
-        <pre id="respProducto" class="resp"></pre>
-      </form>
-    </section>
-
-    <!-- Panel: Fotos -->
-    <section id="fotos" class="panel" data-roles="admin,fotos">
-      <h2>Cargar fotografía</h2>
-      <form id="formFoto" enctype="multipart/form-data">
-        <div class="grid">
-          <label>Id del artículo* <input name="id_del_articulo" required></label>
-          <label>Archivo* <input name="file" type="file" accept="image/*" multiple required></label>
-        </div>
-        <div class="actions">
-          <button type="submit">Subir foto</button>
-        </div>
-        <p class="help">
-          Usa <code>POST /exec?path=upload</code>. Al subir, se sugiere asignar la URL al campo
-          <code>image_url</code> del producto (se autollenan <code>image_url</code>, <code>image_url_2</code> o
-          <code>image_url_3</code> si están vacíos).
-        </p>
-        <pre id="respFoto" class="resp"></pre>
-      </form>
-    </section>
-
-    <!-- Panel: Ventas (tipo caja registradora) -->
-    <section id="ventas" class="panel" data-roles="admin,ventas,inventario">
-      <h2>Registrar venta</h2>
-
-      <form id="formVenta">
-        <!-- Cliente -->
-        <h3>Datos del cliente</h3>
-        <div class="grid">
-          <label>ID cliente
-            <input name="id_cliente" placeholder="CLI-... (opcional)">
-          </label>
-          <label>Nombre*
-            <input name="cliente_nombre" placeholder="Nombre del cliente" required>
-          </label>
-          <label>Teléfono
-            <input name="cliente_telefono" placeholder="Teléfono">
-          </label>
-          <label>Email
-            <input name="cliente_email" placeholder="correo@ejemplo.com">
-          </label>
-        </div>
-        <div class="actions">
-          <button type="button" id="btnVentaGuardarCliente">Guardar / actualizar cliente</button>
-        </div>
-        <pre id="respCliente" class="resp"></pre>
-
-        <hr>
-
-        <!-- Producto a agregar -->
-        <h3>Agregar productos a la venta</h3>
-        <div class="grid" id="ventaProductoBox">
-          <label>Código del artículo*
-            <input name="id_del_articulo" id="ventaCodigo" placeholder="Ej. 101" autocomplete="off">
-          </label>
-          <label>Nombre
-            <input name="nombre_producto" id="ventaNombre" readonly>
-          </label>
-          <label>Precio sugerido
-            <input name="precio_sugerido" id="ventaPrecioSugerido" readonly>
-          </label>
-          <label>Stock actual
-            <input name="stock" id="ventaStock" readonly>
-          </label>
-          <label>Cantidad*
-            <input name="cantidad_item" id="ventaCantidad" type="number" step="1" min="1" value="1">
-          </label>
-          <label>Precio unitario (editable)
-            <input name="precio_unitario_item" id="ventaPrecioUnitario" type="number" step="0.01">
-          </label>
-        </div>
-        <div class="actions">
-          <button type="button" id="btnVentaBuscarProducto">Buscar producto (Enter también)</button>
-          <button type="button" id="btnVentaAgregarItem">Agregar a la venta</button>
-        </div>
-        <p class="help">
-          Escribe el código y presiona <strong>Enter</strong> o el botón "Buscar producto".<br>
-          Se cargará el nombre, precio sugerido y stock. El precio unitario se puede editar (descuento o recargo).
-        </p>
-        <pre id="ventaRespProducto" class="resp"></pre>
-
-        <!-- Tabla de items en la venta -->
-        <h3>Detalle de la venta</h3>
-        <div class="table-wrapper">
-          <table class="tabla">
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Producto</th>
-                <th>Cant.</th>
-                <th>Precio unit.</th>
-                <th>Subtotal</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="ventaItemsBody">
-              <!-- filas dinámicas -->
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Totales -->
-        <div class="totales-box">
-          <p>Total bruto: <strong>Q <span id="ventaTotalBruto">0.00</span></strong></p>
-          <p>Descuento total: <strong>Q <span id="ventaTotalDescuento">0.00</span></strong></p>
-          <p>Total neto: <strong>Q <span id="ventaTotalNeto">0.00</span></strong></p>
-        </div>
-
-        <hr>
-
-        <!-- Pago y crédito -->
-        <h3>Pago y condiciones</h3>
-        <div class="grid">
-          <label>Monto pagado ahora
-            <input name="pago_inicial_monto" id="pagoInicialMonto" type="number" step="0.01" placeholder="Q 0.00">
-          </label>
-          <label>Forma de pago
-            <select name="pago_inicial_forma" id="pagoInicialForma">
-              <option value="">(auto)</option>
-              <option value="efectivo">Efectivo</option>
-              <option value="tarjeta">Tarjeta</option>
-              <option value="transferencia">Transferencia</option>
-            </select>
-          </label>
-          <label>Plazo de crédito
-            <select name="plazo_dias" id="plazoDias">
-              <option value="0">Sin crédito (contado)</option>
-              <option value="30">30 días</option>
-              <option value="60">60 días</option>
-              <option value="90">90 días</option>
-            </select>
-          </label>
-          <label>Notas
-            <input name="notas" id="ventaNotas" placeholder="Notas adicionales (opcional)">
-          </label>
-        </div>
-
-        <div class="actions">
-          <button type="submit" id="btnVentaRegistrar">Registrar venta</button>
-          <button type="button" id="btnVentaVerComprobante" class="btn-secondary" disabled>
-            Ver comprobante
-          </button>
-        </div>
-        <p class="help">
-          Este formulario usa <code>POST /exec?path=sale_register</code> y registra:
-          venta, detalle, movimientos e incluso el pago inicial.
-        </p>
-        <pre id="respVenta" class="resp"></pre>
-      </form>
-    </section>
-
-    <!-- Panel: Compras -->
-    <section id="compras" class="panel" data-roles="admin,inventario">
-      <h2>Registrar compra</h2>
-
-      <form id="formCompra">
-        <!-- Proveedor -->
-        <h3>Datos del proveedor</h3>
-        <div class="grid">
-          <label>ID proveedor
-            <input name="id_proveedor" placeholder="PROV-... (opcional)">
-          </label>
-          <label>Nombre del proveedor*
-            <input name="proveedor_nombre" placeholder="Nombre del proveedor" required>
-          </label>
-          <label>Teléfono
-            <input name="proveedor_telefono" placeholder="Teléfono">
-          </label>
-          <label>Email
-            <input name="proveedor_email" placeholder="correo@proveedor.com">
-          </label>
-          <label>Tipo de documento
-            <input name="tipo_documento" placeholder="Factura, Nota de crédito, etc.">
-          </label>
-          <label>Número de documento
-            <input name="numero_documento" placeholder="No. de factura, serie, etc.">
-          </label>
-        </div>
-        <div class="actions">
-          <button type="button" id="btnCompraGuardarProveedor">Guardar / actualizar proveedor</button>
-        </div>
-        <pre id="respProveedorCompra" class="resp"></pre>
-
-        <hr>
-
-        <!-- Producto para la compra -->
-        <h3>Agregar productos a la compra</h3>
-        <div class="grid" id="compraProductoBox">
-          <label>Código del artículo*
-            <input id="compraCodigo" placeholder="Ej. 101" autocomplete="off">
-          </label>
-          <label>Nombre
-            <input id="compraNombre" readonly>
-          </label>
-          <label>Costo unitario*
-            <input id="compraCostoUnitario" type="number" step="0.01" placeholder="Q 0.00">
-          </label>
-          <label>Precio de venta sugerido
-            <input id="compraPrecioSugerido" type="number" step="0.01" placeholder="Q 0.00">
-          </label>
-          <label>Cantidad*
-            <input id="compraCantidad" type="number" step="1" min="1" value="1">
-          </label>
-        </div>
-        <div class="actions">
-          <button type="button" id="btnCompraBuscarProducto">Buscar producto</button>
-          <button type="button" id="btnCompraAgregarItem">Agregar a la compra</button>
-        </div>
-        <p class="help">
-          Escribe el código y presiona <strong>Buscar producto</strong> o Enter (en el campo código).<br>
-          Se cargará el nombre, costo actual y precio de venta sugerido. Puedes ajustar el costo unitario si cambió.
-        </p>
-        <pre id="compraRespProducto" class="resp"></pre>
-
-        <!-- Detalle de la compra -->
-        <h3>Detalle de la compra</h3>
-        <div class="table-wrapper">
-          <table class="tabla">
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Producto</th>
-                <th>Cant.</th>
-                <th>Costo unit.</th>
-                <th>Subtotal</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="compraItemsBody">
-              <!-- filas dinámicas -->
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Totales de compra -->
-        <div class="totales-box">
-          <p>Total de la compra: <strong>Q <span id="compraTotalNeto">0.00</span></strong></p>
-        </div>
-
-        <hr>
-
-        <!-- Notas -->
-        <h3>Notas de la compra</h3>
-        <div class="grid">
-          <label>Notas
-            <input name="notas" placeholder="Notas adicionales (opcional)">
-          </label>
-        </div>
-
-        <div class="actions">
-          <button type="submit" id="btnCompraRegistrar">Registrar compra</button>
-        </div>
-        <p class="help">
-          Este formulario usa <code>POST /exec?path=purchase_register</code> y registra:
-          la compra, el detalle y los movimientos de inventario (<code>tipo=ingreso</code>) para cada producto.
-        </p>
-        <pre id="respCompra" class="resp"></pre>
-      </form>
-    </section>
-
-    <!-- Panel: Movimientos -->
-    <section id="movimientos" class="panel" data-roles="admin,inventario">
-      <h2>Registrar movimiento</h2>
-      <form id="formMovimiento">
-        <div class="grid">
-          <label>Operación*
-            <select name="operacion" required>
-              <option value="venta">Venta (salida de inventario)</option>
-              <option value="compra">Compra (ingreso a inventario)</option>
-              <option value="ajuste">Ajuste de stock</option>
-            </select>
-          </label>
-        
-          <label>Id del artículo* <input name="id_del_articulo" required></label>
-
-          <label>Cantidad* <input name="cantidad" type="number" step="1" required></label>
-
-          <label>Precio unitario (venta)
-            <input name="precio_unitario" type="number" step="0.01" placeholder="Q 0.00">
-          </label>
-
-          <label>Costo unitario (compra)
-            <input name="costo_unitario" type="number" step="0.01" placeholder="Q 0.00">
-          </label>
-
-          <label>Motivo / referencia
-            <input name="motivo" placeholder="Factura, cliente, proveedor, etc.">
-          </label>
-
-          <label>Usuario
-            <input name="usuario" placeholder="Opcional, se puede dejar el correo">
-          </label>
-
-          <label>Observaciones
-            <input name="observaciones" placeholder="Notas adicionales">
-          </label>
-        </div>
-
-        <div class="actions">
-          <button type="submit">Registrar</button>
-        </div>
-        <pre id="respMovimiento" class="resp"></pre>
-      </form>
-
-      <h3>Generar comprobante (para salidas)</h3>
-      <form id="formRecibo">
-        <div class="grid">
-          <label>ID de movimiento* <input name="id_movimiento" placeholder="MOV-..." required></label>
-        </div>
-        <div class="actions">
-          <button type="submit">Generar PDF</button>
-        </div>
-        <pre id="respRecibo" class="resp"></pre>
-      </form>
-
-      <hr>
-
-      <!-- RESUMEN DE VENTAS DEL DÍA -->
-      <h3>Resumen de ventas del día</h3>
-      <form id="formResumenVentas">
-        <label for="fechaResumenVentas">Fecha:</label>
-        <input
-          type="date"
-          id="fechaResumenVentas"
-          name="fecha"  <!-- IMPORTANTE: name="fecha" -->
-        >
-        <button type="submit">Ver resumen</button>
-      </form>
-
-      <!-- Contenedor general del resumen -->
-      <section id="resumenVentasWrapper" style="margin-top:1rem;">
-
-        <!-- Totales del día (texto) -->
-        <div id="totales-dia"></div>
-
-        <!-- Bloque plegable para GRÁFICAS -->
-        <details id="charts-section" style="margin-top: 1.5rem;">
-          <summary style="cursor:pointer; font-weight:600;">
-            Ver gráficas del día
-          </summary>
-          <div class="charts-grid" style="margin-top:1rem; display:flex; flex-wrap:wrap; gap:24px;">
-            <div style="flex:1 1 260px; max-width:360px;">
-              <h4 style="margin-bottom:0.5rem;">Ventas contado vs crédito</h4>
-              <canvas id="chart-ventas"></canvas>
-            </div>
-            <div style="flex:1 1 260px; max-width:360px;">
-              <h4 style="margin-bottom:0.5rem;">Costo vs ganancia estimada</h4>
-              <canvas id="chart-margen"></canvas>
-            </div>
+      <!-- DASHBOARD -->
+      <section id="dashboard" class="panel active" data-roles="admin,ventas,inventario,productos,fotos">
+        <div class="panel-header">
+          <div>
+            <h2>Dashboard — Resumen General</h2>
+            <p class="panel-subtitle">
+              Vista rápida del estado de ventas, inventarios y stock.
+            </p>
           </div>
-        </details>
+        </div>
+      
+        <!-- Tarjetas KPI -->
+        <div id="dashCards" class="dash-cards">
+          <div class="dash-card dash-card--ventas-hoy">
+            <h3>Ventas hoy</h3>
+            <p id="kpiHoy">—</p>
+          </div>
+        
+          <div class="dash-card dash-card--ventas-mes">
+            <h3>Ventas mes</h3>
+            <p id="kpiMes">—</p>
+          </div>
+        
+          <div class="dash-card dash-card--stock-bajo">
+            <h3>Stock bajo</h3>
+            <p id="kpiStockBajo">—</p>
+          </div>
+        
+          <div class="dash-card dash-card--inventario">
+            <h3>Inventario total</h3>
+            <p id="kpiInventario">—</p>
+          </div>
+        </div>
 
-        <!-- Bloque plegable para DETALLE DE VENTAS -->
-        <details id="detalle-section" style="margin-top: 1.5rem;">
-          <summary style="cursor:pointer; font-weight:600;">
-            Ver detalle de ventas
-          </summary>
-
-          <div class="table-wrapper" style="margin-top:1rem;">
-            <table id="detalle-ventas" class="tabla" style="width:100%; border-collapse:collapse;">
+        <!-- Gráfica -->
+        <div class="dash-chart-box">
+          <div class="dash-box-header">
+            <h3>Ventas de los últimos 7 días</h3>
+          </div>
+          <div id="chart-ventas-wrapper">
+            <canvas id="chart-ventas-7d"></canvas>
+          </div>
+        </div>
+      
+        <!-- Últimas ventas -->
+        <div class="dash-last-sales">
+          <div class="dash-box-header">
+            <h3>Últimas ventas registradas</h3>
+          </div>
+          <div class="table-wrapper">
+            <table class="tabla">
               <thead>
                 <tr>
-                  <th style="text-align:left;">Hora</th>
-                  <th style="text-align:left;">Cliente</th>
-                  <th style="text-align:left;">Tipo</th>
-                  <th style="text-align:right;">Total neto</th>
-                  <th style="text-align:right;">Pagado</th>
-                  <th style="text-align:right;">Saldo</th>
+                  <th>Hora</th>
+                  <th>Cliente</th>
+                  <th>Tipo</th>
+                  <th style="text-align:right;">Total</th>
                 </tr>
               </thead>
-              <tbody id="detalle-ventas-body">
+              <tbody id="dashLastSalesBody">
+                <!-- dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel: Productos -->
+      <section id="productos" class="panel" data-roles="admin,productos">
+        <h2>Crear / Actualizar producto</h2>
+        <form id="formProducto">
+          <div class="grid">
+            <label>Id del artículo* <input name="id_del_articulo" required></label>
+            <label>Nombre* <input name="nombre" required></label>
+            <label>Categoría <input name="categoria"></label>
+            <label>Precio de venta* <input name="precio_de_venta" type="number" step="0.01" required></label>
+            <label>Cantidad <input name="cantidad" type="number" step="1"></label>
+            <label>Moneda <input name="moneda" value="GTQ"></label>
+            <label>Estado
+              <select name="status">
+                <option value="">(auto)</option>
+                <option value="activo">activo</option>
+                <option value="sin_stock">sin_stock</option>
+                <option value="inactivo">inactivo</option>
+              </select>
+            </label>
+            <label>Imagen (URL) <input name="image_url" placeholder="https://..."></label>
+            <label>Descripción <textarea name="descripcion" rows="3"></textarea></label>
+          </div>
+          <div class="actions">
+            <button type="submit" id="btnGuardarProducto">Guardar producto</button>
+            <button type="button" id="cargarProducto" class="btn-secondary">Cargar por ID</button>
+          </div>
+          <p class="help">
+            Este formulario usa <code>POST /exec?path=product_upsert</code> y
+            <code>GET /exec?path=product_fetch</code>.
+          </p>
+          <pre id="respProducto" class="resp"></pre>
+        </form>
+      </section>
+
+      <!-- Panel: Fotos -->
+      <section id="fotos" class="panel" data-roles="admin,fotos">
+        <h2>Cargar fotografía</h2>
+        <form id="formFoto" enctype="multipart/form-data">
+          <div class="grid">
+            <label>Id del artículo* <input name="id_del_articulo" required></label>
+            <label>Archivo* <input name="file" type="file" accept="image/*" multiple required></label>
+          </div>
+          <div class="actions">
+            <button type="submit">Subir foto</button>
+          </div>
+          <p class="help">
+            Usa <code>POST /exec?path=upload</code>. Al subir, se sugiere asignar la URL al campo
+            <code>image_url</code> del producto (se autollenan <code>image_url</code>, <code>image_url_2</code> o
+            <code>image_url_3</code> si están vacíos).
+          </p>
+          <pre id="respFoto" class="resp"></pre>
+        </form>
+      </section>
+
+      <!-- Panel: Ventas (tipo caja registradora) -->
+      <section id="ventas" class="panel" data-roles="admin,ventas,inventario">
+        <h2>Registrar venta</h2>
+
+        <form id="formVenta">
+          <!-- Cliente -->
+          <h3>Datos del cliente</h3>
+          <div class="grid">
+            <label>ID cliente
+              <input name="id_cliente" placeholder="CLI-... (opcional)">
+            </label>
+            <label>Nombre*
+              <input name="cliente_nombre" placeholder="Nombre del cliente" required>
+            </label>
+            <label>Teléfono
+              <input name="cliente_telefono" placeholder="Teléfono">
+            </label>
+            <label>Email
+              <input name="cliente_email" placeholder="correo@ejemplo.com">
+            </label>
+          </div>
+          <div class="actions">
+            <button type="button" id="btnVentaGuardarCliente">Guardar / actualizar cliente</button>
+          </div>
+          <pre id="respCliente" class="resp"></pre>
+
+          <hr>
+
+          <!-- Producto a agregar -->
+          <h3>Agregar productos a la venta</h3>
+          <div class="grid" id="ventaProductoBox">
+            <label>Código del artículo*
+              <input name="id_del_articulo" id="ventaCodigo" placeholder="Ej. 101" autocomplete="off">
+            </label>
+            <label>Nombre
+              <input name="nombre_producto" id="ventaNombre" readonly>
+            </label>
+            <label>Precio sugerido
+              <input name="precio_sugerido" id="ventaPrecioSugerido" readonly>
+            </label>
+            <label>Stock actual
+              <input name="stock" id="ventaStock" readonly>
+            </label>
+            <label>Cantidad*
+              <input name="cantidad_item" id="ventaCantidad" type="number" step="1" min="1" value="1">
+            </label>
+            <label>Precio unitario (editable)
+              <input name="precio_unitario_item" id="ventaPrecioUnitario" type="number" step="0.01">
+            </label>
+          </div>
+          <div class="actions">
+            <button type="button" id="btnVentaBuscarProducto">Buscar producto (Enter también)</button>
+            <button type="button" id="btnVentaAgregarItem">Agregar a la venta</button>
+          </div>
+          <p class="help">
+            Escribe el código y presiona <strong>Enter</strong> o el botón "Buscar producto".<br>
+            Se cargará el nombre, precio sugerido y stock. El precio unitario se puede editar (descuento o recargo).
+          </p>
+          <pre id="ventaRespProducto" class="resp"></pre>
+
+          <!-- Tabla de items en la venta -->
+          <h3>Detalle de la venta</h3>
+          <div class="table-wrapper">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Producto</th>
+                  <th>Cant.</th>
+                  <th>Precio unit.</th>
+                  <th>Subtotal</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="ventaItemsBody">
                 <!-- filas dinámicas -->
               </tbody>
             </table>
-            <div id="venta-detalle-wrapper" style="margin-top:1rem; display:none;">
-              <h4 id="venta-detalle-titulo" style="margin-bottom:0.5rem;">
-                Detalle de la venta
-              </h4>
-              <div class="table-wrapper">
-                <table class="tabla" style="width:100%; border-collapse:collapse;">
-                  <thead>
-                    <tr>
-                      <th>Línea</th>
-                      <th>Código</th>
-                      <th>Producto</th>
-                      <th>Cant.</th>
-                      <th>Precio unit.</th>
-                      <th>Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody id="venta-detalle-body">
-                    <!-- filas dinámicas -->
-                  </tbody>
-                </table>
+          </div>
+
+          <!-- Totales -->
+          <div class="totales-box">
+            <p>Total bruto: <strong>Q <span id="ventaTotalBruto">0.00</span></strong></p>
+            <p>Descuento total: <strong>Q <span id="ventaTotalDescuento">0.00</span></strong></p>
+            <p>Total neto: <strong>Q <span id="ventaTotalNeto">0.00</span></strong></p>
+          </div>
+
+          <hr>
+
+          <!-- Pago y crédito -->
+          <h3>Pago y condiciones</h3>
+          <div class="grid">
+            <label>Monto pagado ahora
+              <input name="pago_inicial_monto" id="pagoInicialMonto" type="number" step="0.01" placeholder="Q 0.00">
+            </label>
+            <label>Forma de pago
+              <select name="pago_inicial_forma" id="pagoInicialForma">
+                <option value="">(auto)</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="transferencia">Transferencia</option>
+              </select>
+            </label>
+            <label>Plazo de crédito
+              <select name="plazo_dias" id="plazoDias">
+                <option value="0">Sin crédito (contado)</option>
+                <option value="30">30 días</option>
+                <option value="60">60 días</option>
+                <option value="90">90 días</option>
+              </select>
+            </label>
+            <label>Notas
+              <input name="notas" id="ventaNotas" placeholder="Notas adicionales (opcional)">
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="submit" id="btnVentaRegistrar">Registrar venta</button>
+            <button type="button" id="btnVentaVerComprobante" class="btn-secondary" disabled>
+              Ver comprobante
+            </button>
+          </div>
+          <p class="help">
+            Este formulario usa <code>POST /exec?path=sale_register</code> y registra:
+            venta, detalle, movimientos e incluso el pago inicial.
+          </p>
+          <pre id="respVenta" class="resp"></pre>
+        </form>
+      </section>
+
+      <!-- Panel: Compras -->
+      <section id="compras" class="panel" data-roles="admin,inventario">
+        <h2>Registrar compra</h2>
+
+        <form id="formCompra">
+          <!-- Proveedor -->
+          <h3>Datos del proveedor</h3>
+          <div class="grid">
+            <label>ID proveedor
+              <input name="id_proveedor" placeholder="PROV-... (opcional)">
+            </label>
+            <label>Nombre del proveedor*
+              <input name="proveedor_nombre" placeholder="Nombre del proveedor" required>
+            </label>
+            <label>Teléfono
+              <input name="proveedor_telefono" placeholder="Teléfono">
+            </label>
+            <label>Email
+              <input name="proveedor_email" placeholder="correo@proveedor.com">
+            </label>
+            <label>Tipo de documento
+              <input name="tipo_documento" placeholder="Factura, Nota de crédito, etc.">
+            </label>
+            <label>Número de documento
+              <input name="numero_documento" placeholder="No. de factura, serie, etc.">
+            </label>
+          </div>
+          <div class="actions">
+            <button type="button" id="btnCompraGuardarProveedor">Guardar / actualizar proveedor</button>
+          </div>
+          <pre id="respProveedorCompra" class="resp"></pre>
+
+          <hr>
+
+          <!-- Producto para la compra -->
+          <h3>Agregar productos a la compra</h3>
+          <div class="grid" id="compraProductoBox">
+            <label>Código del artículo*
+              <input id="compraCodigo" placeholder="Ej. 101" autocomplete="off">
+            </label>
+            <label>Nombre
+              <input id="compraNombre" readonly>
+            </label>
+            <label>Costo unitario*
+              <input id="compraCostoUnitario" type="number" step="0.01" placeholder="Q 0.00">
+            </label>
+            <label>Precio de venta sugerido
+              <input id="compraPrecioSugerido" type="number" step="0.01" placeholder="Q 0.00">
+            </label>
+            <label>Cantidad*
+              <input id="compraCantidad" type="number" step="1" min="1" value="1">
+            </label>
+          </div>
+          <div class="actions">
+            <button type="button" id="btnCompraBuscarProducto">Buscar producto</button>
+            <button type="button" id="btnCompraAgregarItem">Agregar a la compra</button>
+          </div>
+          <p class="help">
+            Escribe el código y presiona <strong>Buscar producto</strong> o Enter (en el campo código).<br>
+            Se cargará el nombre, costo actual y precio de venta sugerido. Puedes ajustar el costo unitario si cambió.
+          </p>
+          <pre id="compraRespProducto" class="resp"></pre>
+
+          <!-- Detalle de la compra -->
+          <h3>Detalle de la compra</h3>
+          <div class="table-wrapper">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Producto</th>
+                  <th>Cant.</th>
+                  <th>Costo unit.</th>
+                  <th>Subtotal</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="compraItemsBody">
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Totales de compra -->
+          <div class="totales-box">
+            <p>Total de la compra: <strong>Q <span id="compraTotalNeto">0.00</span></strong></p>
+          </div>
+
+          <hr>
+
+          <!-- Notas -->
+          <h3>Notas de la compra</h3>
+          <div class="grid">
+            <label>Notas
+              <input name="notas" placeholder="Notas adicionales (opcional)">
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="submit" id="btnCompraRegistrar">Registrar compra</button>
+          </div>
+          <p class="help">
+            Este formulario usa <code>POST /exec?path=purchase_register</code> y registra:
+            la compra, el detalle y los movimientos de inventario (<code>tipo=ingreso</code>) para cada producto.
+          </p>
+          <pre id="respCompra" class="resp"></pre>
+        </form>
+      </section>
+
+      <!-- Panel: Movimientos -->
+      <section id="movimientos" class="panel" data-roles="admin,inventario">
+        <h2>Registrar movimiento</h2>
+        <form id="formMovimiento">
+          <div class="grid">
+            <label>Operación*
+              <select name="operacion" required>
+                <option value="venta">Venta (salida de inventario)</option>
+                <option value="compra">Compra (ingreso a inventario)</option>
+                <option value="ajuste">Ajuste de stock</option>
+              </select>
+            </label>
+          
+            <label>Id del artículo* <input name="id_del_articulo" required></label>
+
+            <label>Cantidad* <input name="cantidad" type="number" step="1" required></label>
+
+            <label>Precio unitario (venta)
+              <input name="precio_unitario" type="number" step="0.01" placeholder="Q 0.00">
+            </label>
+
+            <label>Costo unitario (compra)
+              <input name="costo_unitario" type="number" step="0.01" placeholder="Q 0.00">
+            </label>
+
+            <label>Motivo / referencia
+              <input name="motivo" placeholder="Factura, cliente, proveedor, etc.">
+            </label>
+
+            <label>Usuario
+              <input name="usuario" placeholder="Opcional, se puede dejar el correo">
+            </label>
+
+            <label>Observaciones
+              <input name="observaciones" placeholder="Notas adicionales">
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="submit">Registrar</button>
+          </div>
+          <pre id="respMovimiento" class="resp"></pre>
+        </form>
+
+        <h3>Generar comprobante (para salidas)</h3>
+        <form id="formRecibo">
+          <div class="grid">
+            <label>ID de movimiento* <input name="id_movimiento" placeholder="MOV-..." required></label>
+          </div>
+          <div class="actions">
+            <button type="submit">Generar PDF</button>
+          </div>
+          <pre id="respRecibo" class="resp"></pre>
+        </form>
+
+        <hr>
+
+        <!-- RESUMEN DE VENTAS DEL DÍA -->
+        <h3>Resumen de ventas del día</h3>
+        <form id="formResumenVentas">
+          <label for="fechaResumenVentas">Fecha:</label>
+          <input
+            type="date"
+            id="fechaResumenVentas"
+            name="fecha"  <!-- IMPORTANTE: name="fecha" -->
+          >
+          <button type="submit">Ver resumen</button>
+        </form>
+
+        <!-- Contenedor general del resumen -->
+        <section id="resumenVentasWrapper" style="margin-top:1rem;">
+
+          <!-- Totales del día (texto) -->
+          <div id="totales-dia"></div>
+
+          <!-- Bloque plegable para GRÁFICAS -->
+          <details id="charts-section" style="margin-top: 1.5rem;">
+            <summary style="cursor:pointer; font-weight:600;">
+              Ver gráficas del día
+            </summary>
+            <div class="charts-grid" style="margin-top:1rem; display:flex; flex-wrap:wrap; gap:24px;">
+              <div style="flex:1 1 260px; max-width:360px;">
+                <h4 style="margin-bottom:0.5rem;">Ventas contado vs crédito</h4>
+                <canvas id="chart-ventas"></canvas>
+              </div>
+              <div style="flex:1 1 260px; max-width:360px;">
+                <h4 style="margin-bottom:0.5rem;">Costo vs ganancia estimada</h4>
+                <canvas id="chart-margen"></canvas>
               </div>
             </div>
-          </div>
-        </details>
+          </details>
 
-        <!-- Debug opcional: respuesta cruda del API -->
-        <pre id="respResumenVentas" class="resp"></pre>
+          <!-- Bloque plegable para DETALLE DE VENTAS -->
+          <details id="detalle-section" style="margin-top: 1.5rem;">
+            <summary style="cursor:pointer; font-weight:600;">
+              Ver detalle de ventas
+            </summary>
+
+            <div class="table-wrapper" style="margin-top:1rem;">
+              <table id="detalle-ventas" class="tabla" style="width:100%; border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Hora</th>
+                    <th style="text-align:left;">Cliente</th>
+                    <th style="text-align:left;">Tipo</th>
+                    <th style="text-align:right;">Total neto</th>
+                    <th style="text-align:right;">Pagado</th>
+                    <th style="text-align:right;">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody id="detalle-ventas-body">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+              <div id="venta-detalle-wrapper" style="margin-top:1rem; display:none;">
+                <h4 id="venta-detalle-titulo" style="margin-bottom:0.5rem;">
+                  Detalle de la venta
+                </h4>
+                <div class="table-wrapper">
+                  <table class="tabla" style="width:100%; border-collapse:collapse;">
+                    <thead>
+                      <tr>
+                        <th>Línea</th>
+                        <th>Código</th>
+                        <th>Producto</th>
+                        <th>Cant.</th>
+                        <th>Precio unit.</th>
+                        <th>Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody id="venta-detalle-body">
+                      <!-- filas dinámicas -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- Debug opcional: respuesta cruda del API -->
+          <pre id="respResumenVentas" class="resp"></pre>
+        </section>
+
+        <hr>
+
+        <!-- =========================
+             REPORTES AVANZADOS
+             ========================= -->
+        <h3>Reportes avanzados de Ventas</h3>
+
+        <form id="formReportesAvanzados" class="reportes-form">
+          <div class="grid">
+            <label>Desde
+              <input type="date" id="repAvDesde" name="desde">
+            </label>
+            <label>Hasta
+              <input type="date" id="repAvHasta" name="hasta">
+            </label>
+          </div>
+          <div class="actions">
+            <button type="submit">Ver reporte</button>
+          </div>
+        </form>
+
+        <!-- Contenedor del resultado de reportes avanzados -->
+        <section id="repAvWrapper" style="margin-top:1rem; display:none;">
+
+          <!-- TOT. RANGO -->
+          <div id="repAvTotales" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem;">
+            <!-- tarjetas de totales -->
+          </div>
+
+          <!-- VENTAS POR DÍA -->
+          <details open style="margin-bottom:1.5rem;">
+            <summary style="cursor:pointer;font-weight:600;">Ventas por día</summary>
+            <div class="table-wrapper" style="margin-top:1rem;">
+              <table class="tabla" style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Fecha</th>
+                    <th style="text-align:right;">Total día</th>
+                    <th style="text-align:right;">Contado</th>
+                    <th style="text-align:right;">Crédito</th>
+                    <th style="text-align:right;">Pagado</th>
+                    <th style="text-align:right;">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody id="repAvPorDiaBody">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </details>
+
+          <!-- TOP PRODUCTOS -->
+          <details open style="margin-bottom:1.5rem;">
+            <summary style="cursor:pointer;font-weight:600;">Top productos (por total vendido)</summary>
+            <div class="table-wrapper" style="margin-top:1rem;">
+              <table class="tabla" style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Código</th>
+                    <th style="text-align:left;">Producto</th>
+                    <th style="text-align:right;">Cantidad</th>
+                    <th style="text-align:right;">Total neto</th>
+                  </tr>
+                </thead>
+                <tbody id="repAvTopProdBody">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </details>
+
+          <!-- TOP CLIENTES -->
+          <details open style="margin-bottom:1.5rem;">
+            <summary style="cursor:pointer;font-weight:600;">Top clientes (por total comprado)</summary>
+            <div class="table-wrapper" style="margin-top:1rem;">
+              <table class="tabla" style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Cliente</th>
+                    <th style="text-align:right;">Total neto</th>
+                    <th style="text-align:right;">Saldo pendiente</th>
+                  </tr>
+                </thead>
+                <tbody id="repAvTopCliBody">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </details>
+
+          <!-- CUENTAS POR COBRAR -->
+          <details open style="margin-bottom:1.5rem;">
+            <summary style="cursor:pointer;font-weight:600;">Cuentas por cobrar en el rango</summary>
+            <div class="table-wrapper" style="margin-top:1rem;">
+              <table class="tabla" style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Cliente</th>
+                    <th style="text-align:right;">Saldo pendiente total</th>
+                    <th style="text-align:right;">Ventas pendientes</th>
+                  </tr>
+                </thead>
+                <tbody id="repAvCxcBody">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </details>
+
+          <!-- Debug opcional -->
+          <details>
+            <summary style="cursor:pointer;">Ver JSON crudo</summary>
+            <pre id="repAvDebug" class="resp"></pre>
+          </details>
+        </section>
+
+        <!-- =========================
+             REPORTES AVANZADOS DE COMPRAS
+             ========================= -->
+        <h3>Reportes avanzados de Compras</h3>
+
+        <form id="formReportesCompras" class="reportes-form">
+          <div class="grid">
+            <label>Desde
+              <input type="date" id="repCompDesde" name="desde">
+            </label>
+            <label>Hasta
+              <input type="date" id="repCompHasta" name="hasta">
+            </label>
+          </div>
+          <div class="actions">
+            <button type="submit">Ver reporte de compras</button>
+          </div>
+        </form>
+
+        <!-- Contenedor del resultado de reportes avanzados de compras -->
+        <section id="repCompWrapper" style="margin-top:1rem; display:none;">
+
+          <!-- TOT. RANGO COMPRAS -->
+          <div id="repCompTotales" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem;">
+            <!-- tarjetas de totales de compras -->
+          </div>
+
+          <!-- COMPRAS POR DÍA -->
+          <details open style="margin-bottom:1.5rem;">
+            <summary style="cursor:pointer;font-weight:600;">Compras por día</summary>
+            <div class="table-wrapper" style="margin-top:1rem;">
+              <table class="tabla" style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Fecha</th>
+                    <th style="text-align:right;">Total día</th>
+                  </tr>
+                </thead>
+                <tbody id="repCompPorDiaBody">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </details>
+
+          <!-- TOP PRODUCTOS COMPRADOS -->
+          <details open style="margin-bottom:1.5rem;">
+            <summary style="cursor:pointer;font-weight:600;">Top productos comprados</summary>
+            <div class="table-wrapper" style="margin-top:1rem;">
+              <table class="tabla" style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Código</th>
+                    <th style="text-align:left;">Producto</th>
+                    <th style="text-align:right;">Cantidad</th>
+                    <th style="text-align:right;">Total comprado</th>
+                  </tr>
+                </thead>
+                <tbody id="repCompTopProdBody">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </details>
+
+          <!-- TOP PROVEEDORES -->
+          <details open style="margin-bottom:1.5rem;">
+            <summary style="cursor:pointer;font-weight:600;">Top proveedores</summary>
+            <div class="table-wrapper" style="margin-top:1rem;">
+              <table class="tabla" style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Proveedor</th>
+                    <th style="text-align:right;">Total comprado</th>
+                  </tr>
+                </thead>
+                <tbody id="repCompTopProvBody">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </details>
+
+          <!-- Debug opcional -->
+          <details>
+            <summary style="cursor:pointer;">Ver JSON crudo (compras)</summary>
+            <pre id="repCompDebug" class="resp"></pre>
+          </details>
+        </section>
       </section>
 
-      <hr>
-
-      <!-- =========================
-           REPORTES AVANZADOS
-           ========================= -->
-      <h3>Reportes avanzados de Ventas</h3>
-
-      <form id="formReportesAvanzados" class="reportes-form">
-        <div class="grid">
-          <label>Desde
-            <input type="date" id="repAvDesde" name="desde">
-          </label>
-          <label>Hasta
-            <input type="date" id="repAvHasta" name="hasta">
-          </label>
-        </div>
-        <div class="actions">
-          <button type="submit">Ver reporte</button>
-        </div>
-      </form>
-
-      <!-- Contenedor del resultado de reportes avanzados -->
-      <section id="repAvWrapper" style="margin-top:1rem; display:none;">
-
-        <!-- TOT. RANGO -->
-        <div id="repAvTotales" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem;">
-          <!-- tarjetas de totales -->
-        </div>
-
-        <!-- VENTAS POR DÍA -->
-        <details open style="margin-bottom:1.5rem;">
-          <summary style="cursor:pointer;font-weight:600;">Ventas por día</summary>
-          <div class="table-wrapper" style="margin-top:1rem;">
-            <table class="tabla" style="width:100%;border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">Fecha</th>
-                  <th style="text-align:right;">Total día</th>
-                  <th style="text-align:right;">Contado</th>
-                  <th style="text-align:right;">Crédito</th>
-                  <th style="text-align:right;">Pagado</th>
-                  <th style="text-align:right;">Saldo</th>
-                </tr>
-              </thead>
-              <tbody id="repAvPorDiaBody">
-                <!-- filas dinámicas -->
-              </tbody>
-            </table>
-          </div>
-        </details>
-
-        <!-- TOP PRODUCTOS -->
-        <details open style="margin-bottom:1.5rem;">
-          <summary style="cursor:pointer;font-weight:600;">Top productos (por total vendido)</summary>
-          <div class="table-wrapper" style="margin-top:1rem;">
-            <table class="tabla" style="width:100%;border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">Código</th>
-                  <th style="text-align:left;">Producto</th>
-                  <th style="text-align:right;">Cantidad</th>
-                  <th style="text-align:right;">Total neto</th>
-                </tr>
-              </thead>
-              <tbody id="repAvTopProdBody">
-                <!-- filas dinámicas -->
-              </tbody>
-            </table>
-          </div>
-        </details>
-
-        <!-- TOP CLIENTES -->
-        <details open style="margin-bottom:1.5rem;">
-          <summary style="cursor:pointer;font-weight:600;">Top clientes (por total comprado)</summary>
-          <div class="table-wrapper" style="margin-top:1rem;">
-            <table class="tabla" style="width:100%;border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">Cliente</th>
-                  <th style="text-align:right;">Total neto</th>
-                  <th style="text-align:right;">Saldo pendiente</th>
-                </tr>
-              </thead>
-              <tbody id="repAvTopCliBody">
-                <!-- filas dinámicas -->
-              </tbody>
-            </table>
-          </div>
-        </details>
-
-        <!-- CUENTAS POR COBRAR -->
-        <details open style="margin-bottom:1.5rem;">
-          <summary style="cursor:pointer;font-weight:600;">Cuentas por cobrar en el rango</summary>
-          <div class="table-wrapper" style="margin-top:1rem;">
-            <table class="tabla" style="width:100%;border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">Cliente</th>
-                  <th style="text-align:right;">Saldo pendiente total</th>
-                  <th style="text-align:right;">Ventas pendientes</th>
-                </tr>
-              </thead>
-              <tbody id="repAvCxcBody">
-                <!-- filas dinámicas -->
-              </tbody>
-            </table>
-          </div>
-        </details>
-
-        <!-- Debug opcional -->
-        <details>
-          <summary style="cursor:pointer;">Ver JSON crudo</summary>
-          <pre id="repAvDebug" class="resp"></pre>
-        </details>
-      </section>
-
-                <!-- =========================
-           REPORTES AVANZADOS DE COMPRAS
-           ========================= -->
-      <h3>Reportes avanzados de Compras</h3>
-
-      <form id="formReportesCompras" class="reportes-form">
-        <div class="grid">
-          <label>Desde
-            <input type="date" id="repCompDesde" name="desde">
-          </label>
-          <label>Hasta
-            <input type="date" id="repCompHasta" name="hasta">
-          </label>
-        </div>
-        <div class="actions">
-          <button type="submit">Ver reporte de compras</button>
-        </div>
-      </form>
-
-      <!-- Contenedor del resultado de reportes avanzados de compras -->
-      <section id="repCompWrapper" style="margin-top:1rem; display:none;">
-
-        <!-- TOT. RANGO COMPRAS -->
-        <div id="repCompTotales" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem;">
-          <!-- tarjetas de totales de compras -->
-        </div>
-
-        <!-- COMPRAS POR DÍA -->
-        <details open style="margin-bottom:1.5rem;">
-          <summary style="cursor:pointer;font-weight:600;">Compras por día</summary>
-          <div class="table-wrapper" style="margin-top:1rem;">
-            <table class="tabla" style="width:100%;border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">Fecha</th>
-                  <th style="text-align:right;">Total día</th>
-                </tr>
-              </thead>
-              <tbody id="repCompPorDiaBody">
-                <!-- filas dinámicas -->
-              </tbody>
-            </table>
-          </div>
-        </details>
-
-        <!-- TOP PRODUCTOS COMPRADOS -->
-        <details open style="margin-bottom:1.5rem;">
-          <summary style="cursor:pointer;font-weight:600;">Top productos comprados</summary>
-          <div class="table-wrapper" style="margin-top:1rem;">
-            <table class="tabla" style="width:100%;border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">Código</th>
-                  <th style="text-align:left;">Producto</th>
-                  <th style="text-align:right;">Cantidad</th>
-                  <th style="text-align:right;">Total comprado</th>
-                </tr>
-              </thead>
-              <tbody id="repCompTopProdBody">
-                <!-- filas dinámicas -->
-              </tbody>
-            </table>
-          </div>
-        </details>
-
-        <!-- TOP PROVEEDORES -->
-        <details open style="margin-bottom:1.5rem;">
-          <summary style="cursor:pointer;font-weight:600;">Top proveedores</summary>
-          <div class="table-wrapper" style="margin-top:1rem;">
-            <table class="tabla" style="width:100%;border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">Proveedor</th>
-                  <th style="text-align:right;">Total comprado</th>
-                </tr>
-              </thead>
-              <tbody id="repCompTopProvBody">
-                <!-- filas dinámicas -->
-              </tbody>
-            </table>
-          </div>
-        </details>
-
-        <!-- Debug opcional -->
-        <details>
-          <summary style="cursor:pointer;">Ver JSON crudo (compras)</summary>
-          <pre id="repCompDebug" class="resp"></pre>
-        </details>
-      </section>
-
-
-    </section>
-
-
+    </div>
   </main>
 
   <footer>
