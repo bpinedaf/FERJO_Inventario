@@ -1,1175 +1,2012 @@
-// admin.js
-// FERJO — Admin Inventarios
-// Maneja: configuración API, pestañas, productos, fotos, ventas, compras,
-// movimientos y reportes básicos.
-// -------------------------------------------------------------------
+// =====================
+// admin.js (completo)
+// =====================
 
-'use strict';
-
-/* ======================================================
-   1) API BASE & UTILIDADES COMUNES
-   ====================================================== */
-
-// MISMA lógica que el catálogo:
-function apiBase() {
-  const saved = localStorage.getItem('FERJO_API_BASE') || (window.CONFIG && window.CONFIG.API) || '';
-  return (saved || '').replace(/\/+$/, ''); // quita slashes finales
-}
-
-// Guarda la base en localStorage y devuelve la versión "limpia"
-function setApiBase(url) {
-  const clean = (url || '').trim().replace(/\/+$/, '');
-  if (!clean) {
-    localStorage.removeItem('FERJO_API_BASE');
-  } else {
-    localStorage.setItem('FERJO_API_BASE', clean);
-  }
-  return clean;
-}
-
-// Construye la URL final: BASE + (? o &) + path=...&t=...
-function buildApiUrl(path, extraParams = {}) {
-  const BASE = apiBase();
-  if (!BASE) {
-    throw new Error(
-      'No hay API configurada. En el Admin, define la URL en la caja "API URL" y presiona Guardar.'
-    );
-  }
-
-  const params = new URLSearchParams({
-    path,
-    t: Date.now().toString(),
-    ...extraParams
+// ---------- Tabs ----------
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById(t.dataset.tab).classList.add('active');
   });
+});
 
-  const join = BASE.includes('?') ? '&' : '?';
-  return `${BASE}${join}${params.toString()}`;
+// ---------- API URL handling ----------
+const apiInput  = document.getElementById('apiUrl');
+const apiStatus = document.getElementById('apiStatus');
+const saved     = localStorage.getItem('FERJO_API_BASE') || (window.CONFIG && window.CONFIG.API) || '';
+apiInput.value  = saved || '';
+function apiBase(){ return (apiInput.value || '').replace(/\/+$/,''); }
+
+document.getElementById('saveApi').addEventListener('click', ()=>{
+  localStorage.setItem('FERJO_API_BASE', apiInput.value.trim());
+  apiStatus.textContent = 'Guardado';
+  setTimeout(()=> apiStatus.textContent='', 1500);
+});
+
+// ---------- Helpers visuales ----------
+function showResp(el, data){
+  try { el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2); }
+  catch { el.textContent = String(data); }
 }
 
-// Parse seguro de respuesta JSON (Apps Script a veces manda text/plain)
-async function parseJsonResponse(res) {
-  const ct = res.headers.get('content-type') || '';
-  const txt = await res.text();
+function appendResp(el, data){
+  const prev  = el.textContent || '';
+  const block = (typeof data === 'string') ? data : JSON.stringify(data, null, 2);
+  el.textContent = (prev ? prev + "\n\n" : "") + block;
+}
+
+async function fetchJSON(url, opts={}){
+  try{
+    const res = await fetch(url, opts);
+    const txt = await res.text();
+    try { return JSON.parse(txt); } catch { return { raw: txt, status: res.status, ok: res.ok }; }
+  }catch(err){
+    return { error: String(err), url, opts: { method: opts.method } };
+  }
+}
+
+// =========================
+// Helpers de formato numérico
+// =========================
+const nfEnteroGT = new Intl.NumberFormat("es-GT", {
+  maximumFractionDigits: 0
+});
+
+const nfDecimalGT = new Intl.NumberFormat("es-GT", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+
+// Q 1,234.56
+function formatQ(value) {
+  const num = Number(value) || 0;
+  return "Q " + nfDecimalGT.format(num);
+}
+
+// Solo número con separador de miles: 1,234
+function formatEntero(value) {
+  const num = Number(value) || 0;
+  return nfEnteroGT.format(num);
+}
+
+// ---------- Helpers de Autenticación ----------
+function getToken(){
+  return (window.AUTH && AUTH.token) || sessionStorage.getItem('FERJO_ID_TOKEN') || '';
+}
+
+// Construye URL incluyendo path y token en query (especial para multipart)
+function apiUrlAuth(path, extraParams = {}){
+  const base = apiBase();                         // puede traer ?user_content_key=...&lib=...
+  const sep  = base.includes('?') ? '&' : '?';
+  const params = { path, ...extraParams, token: getToken() };
+  const qs   = new URLSearchParams(params).toString();
+  return base + sep + qs;
+}
+
+// POST urlencoded + token (usa auth.js si está disponible)
+async function postWithToken(path, payload={}){
+  if (typeof window.postForm === 'function') {
+    return await window.postForm(path, payload);      // usa auth.js (token en body)
+  }
+  // Fallback manual (urlencoded + token)
+  const body = new URLSearchParams({ ...payload, token: getToken() });
+  const url  = apiBase() + (apiBase().includes('?') ? '&' : '?') + 'path=' + encodeURIComponent(path);
+  const res  = await fetch(url, { method:'POST', body });
+  try{ return await res.json(); }catch{ return { ok:false, status:res.status, raw: await res.text() }; }
+}
+
+async function getWithToken(path, params={}){
+  if (typeof window.getJSON === 'function') {
+    return await window.getJSON(path, params);        // usa auth.js (token en query)
+  }
+  // Fallback manual (query + token)
+  const url = apiUrlAuth(path, params);
+  return await fetchJSON(url);
+}
+
+// Helper para POST JSON (ventas) SIN disparar preflight
+async function postJSONWithToken(path, payload = {}) {
+  const url  = apiUrlAuth(path);   // token en query
+  const body = JSON.stringify(payload);  // sin headers personalizados
+
   try {
-    if (ct.includes('application/json')) {
+    const res = await fetch(url, {
+      method: 'POST',
+      body
+    });
+    const txt = await res.text();
+    try {
       return JSON.parse(txt);
+    } catch {
+      return { ok: false, raw: txt, status: res.status };
     }
-    return JSON.parse(txt);
-  } catch (e) {
-    return { ok: false, error: 'Respuesta no es JSON válido', raw: txt };
+  } catch (err) {
+    return { ok: false, error: String(err) };
   }
 }
 
-// Formatear moneda (igual que el catálogo)
-function formatMoneyGTQ(n) {
-  try {
-    return new Intl.NumberFormat('es-GT', {
-      style: 'currency',
-      currency: 'GTQ'
-    }).format(Number(n || 0));
-  } catch {
-    return 'Q ' + Number(n || 0).toFixed(2);
-  }
-}
 
-/* ============================
-   2) CONFIGURACIÓN DE API URL
-   ============================ */
+// ===================================================
+//               PRODUCTOS: upsert / fetch
+// ===================================================
+document.getElementById('formProducto').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const respEl = document.getElementById('respProducto');
+  respEl.textContent = '';
 
-function hydrateApiConfig() {
-  const input = document.getElementById('apiUrl');
-  const status = document.getElementById('apiStatus');
-  if (!input) return;
+  // Tomamos los campos y eliminamos vacíos
+  const raw = Object.fromEntries(new FormData(e.target).entries());
+  Object.keys(raw).forEach(k=>{ if(raw[k]==='' || raw[k]==null) delete raw[k]; });
 
-  const base = apiBase();
-  if (base) {
-    input.value = base;
-    if (status) {
-      status.textContent = '✓ Configurada';
-      status.style.color = '#4caf50';
-    }
-  } else {
-    if (status) {
-      status.textContent = 'Sin configurar';
-      status.style.color = '#f44336';
-    }
-  }
-}
+  appendResp(respEl, { debug:'POST product_upsert' });
 
-async function testApiBase(url) {
-  try {
-    const testUrl = buildApiUrl('ping'); // Puedes cambiar a otro path de prueba si tu backend usa otro
-    const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
-    const data = await parseJsonResponse(res);
-    if (!res.ok || data.ok === false) {
-      throw new Error(data.error || 'HTTP ' + res.status);
-    }
-    return true;
-  } catch (e) {
-    console.warn('Error testeando API:', e);
-    return false;
-  }
-}
+  const out = await postWithToken('product_upsert', raw);
+  showResp(respEl, out);
+});
 
-async function onClickSaveApi() {
-  const input = document.getElementById('apiUrl');
-  const status = document.getElementById('apiStatus');
-  if (!input) return;
-  const raw = input.value;
+document.getElementById('cargarProducto').addEventListener('click', async ()=>{
+  const respEl = document.getElementById('respProducto');
+  respEl.textContent = '';
 
-  const clean = setApiBase(raw);
-  if (!clean) {
-    if (status) {
-      status.textContent = 'URL borrada. Debes configurar una URL válida.';
-      status.style.color = '#f44336';
-    }
-    return;
-  }
+  const id = document.querySelector('#formProducto [name="id_del_articulo"]').value.trim();
+  if(!id){ alert('Ingresa un id_del_articulo'); return; }
 
-  if (status) {
-    status.textContent = 'Probando...';
-    status.style.color = '#ffa000';
-  }
+  appendResp(respEl, { debug:'GET product_fetch', id });
 
-  const ok = await testApiBase(clean);
-  if (status) {
-    if (ok) {
-      status.textContent = '✓ Conexión OK';
-      status.style.color = '#4caf50';
-    } else {
-      status.textContent = '⚠ Guardada, pero no respondió el "ping".';
-      status.style.color = '#f44336';
+  const data = await getWithToken('product_fetch', { id });
+  showResp(respEl, data);
+
+  if(data && data.product){
+    const f = document.getElementById('formProducto');
+    for(const k in data.product){
+      const el = f.querySelector(`[name="${k}"]`);
+      if(el) el.value = data.product[k];
     }
   }
-}
+});
 
-/* ============================
-   3) NAVEGACIÓN POR TABS
-   ============================ */
+// ===================================================
+//  FOTOS: upload + autoasignación (UI silenciosa con loading)
+// ===================================================
+document.getElementById('formFoto').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const respEl = document.getElementById('respFoto');
+  const form   = e.target;
+  const btn    = form.querySelector('button[type="submit"]');
+  const id     = form.querySelector('[name="id_del_articulo"]').value.trim();
+  const files  = Array.from(form.querySelector('[name="file"]').files || []);
 
-function setupTabs() {
-  const tabs = Array.from(document.querySelectorAll('.tabs .tab'));
-  const panels = Array.from(document.querySelectorAll('main .panel'));
+  respEl.textContent = '';
+  if (!id)           { alert('Ingresa un id_del_articulo'); return; }
+  if (!files.length) { alert('Selecciona al menos un archivo'); return; }
 
-  if (!tabs.length || !panels.length) return;
+  // ---- Loading ON ----
+  const originalBtnText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Subiendo…';
+  const loader = document.createElement('span');
+  loader.className = 'spinner';
+  loader.style.marginLeft = '8px';
+  btn.appendChild(loader);
+  // Indicador de estado
+  const statusLine = document.createElement('div');
+  statusLine.style.margin = '8px 0';
+  statusLine.textContent = `⏳ Subiendo ${files.length} archivo(s)…`;
+  respEl.replaceChildren(statusLine);
 
-  tabs.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const tabId = btn.dataset.tab;
-      if (!tabId) return;
+  // Modo silencioso (detalle solo si FERJO_DEBUG=1)
+  const DEBUG_UI = (localStorage.getItem('FERJO_DEBUG')==='1');
+  const dbg = []; const log = (obj)=> dbg.push(obj);
 
-      tabs.forEach((b) => b.classList.remove('active'));
-      panels.forEach((p) => {
-        p.classList.toggle('active', p.id === tabId);
-      });
-
-      btn.classList.add('active');
-    });
+  const uploadUrl = apiUrlAuth('upload');
+  const toBase64 = (f)=> new Promise((resolve, reject)=>{
+    const fr = new FileReader();
+    fr.onload  = ()=> resolve(String(fr.result).split(',')[1] || '');
+    fr.onerror = ()=> reject(new Error('FileReader error'));
+    fr.readAsDataURL(f);
   });
-}
 
-/* ======================================================
-   4) PRODUCTOS (product_fetch / product_upsert)
-   ====================================================== */
-
-// productFetch: lo dejamos global porque se reutiliza en Ventas y Compras
-async function productFetch(params = {}) {
-  const url = buildApiUrl('product_fetch', params);
-  const res = await fetch(url, { method: 'GET', mode: 'cors' });
-  const data = await parseJsonResponse(res);
-
-  if (!res.ok || data.ok === false) {
-    throw new Error(data.error || 'No se pudo obtener el producto');
-  }
-
-  // Acepta varias formas de respuesta
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data.products)) return data.products;
-  if (data.product) return [data.product];
-  return [];
-}
-
-// Rellena formulario de productos
-function fillProductoFormFromObject(p) {
-  const form = document.getElementById('formProducto');
-  if (!form || !p) return;
-
-  form.elements.id_del_articulo.value = p.id_del_articulo || '';
-  form.elements.nombre.value = p.nombre || '';
-  form.elements.categoria.value = p.categoria || '';
-  form.elements.precio_de_venta.value = p.precio_de_venta != null ? p.precio_de_venta : '';
-  form.elements.cantidad.value = p.cantidad != null ? p.cantidad : '';
-  form.elements.moneda.value = p.moneda || 'GTQ';
-  form.elements.status.value = p.status || '';
-  form.elements.image_url.value = p.image_url || '';
-  form.elements.descripcion.value = p.descripcion || '';
-}
-
-// Mostrar JSON en <pre> bonito
-function printJsonPre(id, obj) {
-  const pre = document.getElementById(id);
-  if (!pre) return;
-  pre.textContent = JSON.stringify(obj, null, 2);
-}
-
-// Submit: guardar producto (product_upsert)
-async function onSubmitProducto(ev) {
-  ev.preventDefault();
-  const form = ev.target;
-  const preId = 'respProducto';
+  let successCount = 0;
+  let assignedFields = [];
 
   try {
-    const fd = new FormData(form);
+    // 1) Intento: multipart
+    try{
+      log({ debug: 'Intento #1: multipart único', files: files.map(f=>f.name) });
 
-    const id_del_articulo = (fd.get('id_del_articulo') || '').toString().trim();
-    const nombre = (fd.get('nombre') || '').toString().trim();
-    if (!id_del_articulo) {
-      throw new Error('El campo "Id del artículo" es obligatorio.');
-    }
-    if (!nombre) {
-      throw new Error('El campo "Nombre" es obligatorio.');
-    }
+      const fd = new FormData();
+      fd.append('id_del_articulo', id);
+      files.forEach(f => fd.append('file', f, f.name));
 
-    const payload = {
-      id_del_articulo,
-      nombre,
-      categoria: (fd.get('categoria') || '').toString().trim(),
-      precio_de_venta: Number(fd.get('precio_de_venta') || 0),
-      cantidad: fd.get('cantidad') !== null && fd.get('cantidad') !== ''
-        ? Number(fd.get('cantidad'))
-        : null,
-      moneda: (fd.get('moneda') || 'GTQ').toString().trim() || 'GTQ',
-      status: (fd.get('status') || '').toString().trim(),
-      image_url: (fd.get('image_url') || '').toString().trim(),
-      descripcion: (fd.get('descripcion') || '').toString().trim()
-    };
+      const res = await fetch(uploadUrl, { method:'POST', body: fd });
+      const txt = await res.text();
+      let up; try { up = JSON.parse(txt); } catch { up = { raw: txt, status: res.status }; }
+      log({ debug:'upload response (multipart)', up });
 
-    printJsonPre(preId, { sending: payload });
-
-    const url = buildApiUrl('product_upsert');
-    const btn = document.getElementById('btnGuardarProducto');
-    if (btn) btn.disabled = true;
-
-    const res = await fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await parseJsonResponse(res);
-    printJsonPre(preId, data);
-
-    if (!res.ok || data.ok === false) {
-      throw new Error(data.error || 'No se pudo guardar el producto');
+      if ((up && up.ok) || (up && Array.isArray(up.results))) {
+        if (Array.isArray(up.results)){
+          successCount = up.results.filter(r => r && r.ok).length;
+          assignedFields = up.results.map(r => r?.assigned?.field).filter(Boolean);
+        } else {
+          successCount = 1;
+          if (up.assigned?.field) assignedFields = [up.assigned.field];
+        }
+      } else {
+        log({ warn: 'Multipart no marcó ok, vamos a fallback…' });
+      }
+    }catch(err){
+      log({ warn: 'Fallo multipart, vamos a fallback…', error: String(err) });
     }
 
-    alert('Producto guardado correctamente.');
-  } catch (err) {
-    console.error(err);
-    printJsonPre('respProducto', { error: err.message });
-    alert('Error guardando producto: ' + err.message);
+    // 2) Fallback: urlencoded + token en body
+    if (successCount === 0){
+      log({ debug: 'Intento #2: fallback urlencoded + base64' });
+      const urlForFallback = apiBase() + (apiBase().includes('?') ? '&' : '?') + 'path=upload';
+      for (let i=0; i<files.length; i++){
+        statusLine.textContent = `⏳ Subiendo ${i+1}/${files.length}…`;
+        const file = files[i];
+
+        try{
+          const base64 = await toBase64(file);
+          const body = new URLSearchParams({
+            id_del_articulo: id,
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            base64: base64,
+            token: getToken()
+          });
+
+          const res = await fetch(urlForFallback, { method:'POST', body });
+          const txt = await res.text();
+          let up; try { up = JSON.parse(txt); } catch { up = { raw: txt, status: res.status }; }
+          log({ debug: 'upload response (fallback)', file: file.name, up });
+
+          if (up && up.ok){
+            successCount += 1;
+            if (up.assigned?.field) assignedFields.push(up.assigned.field);
+          }
+          await new Promise(r => setTimeout(r, 200));
+        }catch(err){
+          log({ error: 'Failed to upload', file: file.name, detail: String(err) });
+        }
+      }
+    }
+
+    // 3) Verificación
+    statusLine.textContent = '🔎 Verificando…';
+    let verify = await getWithToken('product_fetch', { id });
+    log({ debug:'product_fetch', verify });
+
+    // 4) Resumen visible
+    const ok = successCount > 0 && verify?.ok;
+    const resumen = ok
+      ? `✅ Carga exitosa (${successCount} archivo(s)). Campos: ${assignedFields.join(', ')||'—'}`
+      : '❌ No se pudo cargar, intenta de nuevo.';
+    respEl.textContent = resumen;
+
+    if (DEBUG_UI){
+      respEl.textContent += '\n\n[DEBUG]\n' + JSON.stringify({dbg}, null, 2);
+    }
   } finally {
-    const btn = document.getElementById('btnGuardarProducto');
-    if (btn) btn.disabled = false;
+    // ---- Loading OFF (siempre) ----
+    btn.disabled = false;
+    btn.textContent = originalBtnText;
+    loader.remove();
   }
+});
+
+// ===================================================
+//              MOVIMIENTOS + RECIBO PDF
+// ===================================================
+// -------- Movimientos --------
+document.getElementById('formMovimiento').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const respEl = document.getElementById('respMovimiento');
+  respEl.textContent = '';
+
+  const fd = new FormData(e.target);
+
+  // Mapear operación de negocio -> tipo de movimiento para el backend
+  const operacion = fd.get('operacion') || 'venta';
+  let tipo = 'salida'; // por defecto, venta = salida de inventario
+  if (operacion === 'compra') tipo = 'ingreso';
+  else if (operacion === 'ajuste') tipo = 'ajuste';
+  fd.set('tipo', tipo);
+
+  // Normalizar numéricos
+  const raw = Object.fromEntries(fd.entries());
+  if (raw.cantidad !== undefined) raw.cantidad = Number(raw.cantidad || 0);
+  if (raw.precio_unitario) raw.precio_unitario = Number(raw.precio_unitario);
+  if (raw.costo_unitario)  raw.costo_unitario  = Number(raw.costo_unitario);
+
+  appendResp(respEl, { debug:'POST movement' });
+
+  const out = await postWithToken('movement', raw);
+  showResp(respEl, out);
+
+  // Si fue una venta (salida) y se creó movimiento, proponemos el ID para el recibo
+  if(out && out.ok && tipo === 'salida' && out.id_movimiento){
+    const recForm = document.querySelector('#formRecibo [name="id_movimiento"]');
+    if (recForm) recForm.value = out.id_movimiento;
+  }
+});
+
+// -------- Recibo PDF --------
+document.getElementById('formRecibo').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const respEl = document.getElementById('respRecibo');
+  respEl.textContent = '';
+
+  const id  = new FormData(e.target).get('id_movimiento');
+  appendResp(respEl, { debug:'GET receipt', id });
+
+  const out = await getWithToken('receipt', { id });
+  showResp(respEl, out);
+  if(out && out.ok && out.url){ window.open(out.url, '_blank'); }
+});
+
+// ===================================================
+//                VENTAS (caja registradora)
+// ===================================================
+let ventaItems = [];
+
+// Dom refs
+const formVenta           = document.getElementById('formVenta');
+const respVenta           = document.getElementById('respVenta');
+const respCliente         = document.getElementById('respCliente');
+const inputIdCliente      = formVenta.querySelector('[name="id_cliente"]');
+const ventaRespProducto   = document.getElementById('ventaRespProducto');
+const ventaItemsBody      = document.getElementById('ventaItemsBody');
+
+const btnVentaVerComprobante = document.getElementById('btnVentaVerComprobante');
+let   ventaDocUrlUltima       = '';
+if (btnVentaVerComprobante) {
+  btnVentaVerComprobante.disabled = true;
 }
 
-// Botón "Cargar por ID"
-async function onClickCargarProducto() {
-  const form = document.getElementById('formProducto');
-  const preId = 'respProducto';
-  if (!form) return;
+const inputVentaCodigo    = document.getElementById('ventaCodigo');
+const inputVentaNombre    = document.getElementById('ventaNombre');
+const inputVentaPrecioSug = document.getElementById('ventaPrecioSugerido');
+const inputVentaStock     = document.getElementById('ventaStock');
+const inputVentaCantidad  = document.getElementById('ventaCantidad');
+const inputVentaPrecioUni = document.getElementById('ventaPrecioUnitario');
 
-  const idDelArticulo = form.elements.id_del_articulo.value.trim();
-  if (!idDelArticulo) {
-    alert('Ingresa un Id del artículo para buscar.');
-    return;
-  }
+const spanTotalBruto      = document.getElementById('ventaTotalBruto');
+const spanTotalDesc       = document.getElementById('ventaTotalDescuento');
+const spanTotalNeto       = document.getElementById('ventaTotalNeto');
 
-  try {
-    printJsonPre(preId, { info: 'Buscando producto...' });
+const inputPagoInicialMonto = document.getElementById('pagoInicialMonto');
+const inputPagoInicialForma = document.getElementById('pagoInicialForma');
+const selectPlazoDias       = document.getElementById('plazoDias');
 
-    const productos = await productFetch({ id_del_articulo: idDelArticulo });
-    if (!productos.length) {
-      throw new Error('No se encontró ningún producto con ese Id.');
-    }
-
-    const p = productos[0];
-    fillProductoFormFromObject(p);
-    printJsonPre(preId, { found: p });
-  } catch (err) {
-    console.error(err);
-    printJsonPre(preId, { error: err.message });
-    alert('Error al cargar producto: ' + err.message);
-  }
+// --- Helpers de ventas ---
+function limpiarProductoActual(){
+  inputVentaNombre.value    = '';
+  inputVentaPrecioSug.value = '';
+  inputVentaPrecioUni.value = '';
+  inputVentaStock.value     = '';
+  inputVentaCantidad.value  = '1';
+  ventaRespProducto.textContent = '';
 }
 
-/* ======================================================
-   5) FOTOS (upload)
-   ====================================================== */
-
-async function onSubmitFoto(ev) {
-  ev.preventDefault();
-  const form = ev.target;
-  const preId = 'respFoto';
-
-  try {
-    const fd = new FormData(form);
-    const idDelArt = (fd.get('id_del_articulo') || '').toString().trim();
-    if (!idDelArt) {
-      throw new Error('El Id del artículo es obligatorio para subir fotos.');
-    }
-
-    const url = buildApiUrl('upload', { id_del_articulo: idDelArt });
-    const res = await fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      body: fd
-    });
-
-    const data = await parseJsonResponse(res);
-    printJsonPre(preId, data);
-
-    if (!res.ok || data.ok === false) {
-      throw new Error(data.error || 'Error subiendo archivo');
-    }
-
-    alert('Foto(s) subida(s) correctamente.');
-  } catch (err) {
-    console.error(err);
-    printJsonPre(preId, { error: err.message });
-    alert('Error al subir foto: ' + err.message);
-  }
-}
-
-/* ======================================================
-   6) VENTAS (sale_register + product_fetch reutilizado)
-   ====================================================== */
-
-let VENTA_ITEMS = [];
-let LAST_SALE_ID = null;
-
-function renderVentaItems() {
-  const tbody = document.getElementById('ventaItemsBody');
-  const totalBrutoEl = document.getElementById('ventaTotalBruto');
-  const totalDescuentoEl = document.getElementById('ventaTotalDescuento');
-  const totalNetoEl = document.getElementById('ventaTotalNeto');
-
-  if (!tbody) return;
-
-  if (!VENTA_ITEMS.length) {
-    tbody.innerHTML = `
-      <tr><td colspan="6" style="text-align:center;opacity:.7;">
-        Sin productos en la venta.
-      </td></tr>`;
-    if (totalBrutoEl) totalBrutoEl.textContent = '0.00';
-    if (totalDescuentoEl) totalDescuentoEl.textContent = '0.00';
-    if (totalNetoEl) totalNetoEl.textContent = '0.00';
-    return;
-  }
-
-  tbody.innerHTML = '';
-  let totalBruto = 0;
-  let totalNeto = 0;
-
-  VENTA_ITEMS.forEach((it, idx) => {
+function renderVentaItems(){
+  ventaItemsBody.innerHTML = '';
+  ventaItems.forEach((it, idx)=>{
     const tr = document.createElement('tr');
-
-    const subtotalSugerido = it.precio_sugerido * it.cantidad;
-    const subtotalNeto = it.precio_unitario * it.cantidad;
-    totalBruto += subtotalSugerido;
-    totalNeto += subtotalNeto;
-
+    const subtotal = it.cantidad * it.precio_unitario;
     tr.innerHTML = `
       <td>${it.id_del_articulo}</td>
       <td>${it.nombre}</td>
-      <td style="text-align:right;">${it.cantidad}</td>
-      <td style="text-align:right;">${formatMoneyGTQ(it.precio_unitario)}</td>
-      <td style="text-align:right;">${formatMoneyGTQ(subtotalNeto)}</td>
-      <td style="text-align:center;">
-        <button type="button" data-index="${idx}" class="btn-secondary btnVentaQuitar">
-          ×
-        </button>
-      </td>
+      <td>${it.cantidad}</td>
+      <td>Q ${it.precio_unitario.toFixed(2)}</td>
+      <td>Q ${subtotal.toFixed(2)}</td>
+      <td><button type="button" class="ventaRemoveItem" data-index="${idx}">✕</button></td>
     `;
-    tbody.appendChild(tr);
+    ventaItemsBody.appendChild(tr);
+  });
+}
+
+function recomputeVentaTotals(){
+  let totalBruto = 0;
+  let totalNeto  = 0;
+
+  ventaItems.forEach(it=>{
+    const bruto = it.cantidad * it.precio_sugerido;
+    const neto  = it.cantidad * it.precio_unitario;
+    totalBruto += bruto;
+    totalNeto  += neto;
   });
 
-  const descuento = totalBruto - totalNeto;
-  if (totalBrutoEl) totalBrutoEl.textContent = totalBruto.toFixed(2);
-  if (totalDescuentoEl) totalDescuentoEl.textContent = descuento.toFixed(2);
-  if (totalNetoEl) totalNetoEl.textContent = totalNeto.toFixed(2);
+  const totalDesc = totalBruto - totalNeto;
+
+  spanTotalBruto.textContent = totalBruto.toFixed(2);
+  spanTotalNeto.textContent  = totalNeto.toFixed(2);
+  spanTotalDesc.textContent  = totalDesc.toFixed(2);
 }
 
-function clearVentaProductoForm() {
-  const codigo = document.getElementById('ventaCodigo');
-  const nombre = document.getElementById('ventaNombre');
-  const sugerido = document.getElementById('ventaPrecioSugerido');
-  const stock = document.getElementById('ventaStock');
-  const cantidad = document.getElementById('ventaCantidad');
-  const precioUnit = document.getElementById('ventaPrecioUnitario');
-
-  if (nombre) nombre.value = '';
-  if (sugerido) sugerido.value = '';
-  if (stock) stock.value = '';
-  if (cantidad) cantidad.value = '1';
-  if (precioUnit) precioUnit.value = '';
-  if (codigo) codigo.focus();
+function resetVenta(){
+  ventaItems = [];
+  renderVentaItems();
+  recomputeVentaTotals();
+  respVenta.textContent = '';
+  inputPagoInicialMonto.value = '';
+  inputPagoInicialForma.value = '';
+  selectPlazoDias.value       = '0';
+  formVenta.querySelector('[name="notas"]').value = '';
+  // No tocamos ventaDocUrlUltima para seguir viendo el último comprobante
 }
 
-async function onClickVentaBuscarProducto() {
-  const codigo = document.getElementById('ventaCodigo');
-  const preId = 'ventaRespProducto';
-  if (!codigo) return;
-  const val = codigo.value.trim();
-  if (!val) {
-    alert('Ingresa un código de artículo para buscar.');
-    return;
-  }
-
-  try {
-    printJsonPre(preId, { info: 'Buscando producto...' });
-    const productos = await productFetch({ id_del_articulo: val });
-
-    if (!productos.length) {
-      throw new Error('No se encontró producto con ese código.');
+// Ver comprobante de la última venta
+if (btnVentaVerComprobante) {
+  btnVentaVerComprobante.addEventListener('click', ()=>{
+    if (ventaDocUrlUltima) {
+      window.open(ventaDocUrlUltima, '_blank');
     }
-
-    const p = productos[0];
-
-    const nombre = document.getElementById('ventaNombre');
-    const sugerido = document.getElementById('ventaPrecioSugerido');
-    const stock = document.getElementById('ventaStock');
-    const precioUnit = document.getElementById('ventaPrecioUnitario');
-
-    if (nombre) nombre.value = p.nombre || '';
-    if (sugerido) sugerido.value = p.precio_de_venta != null ? p.precio_de_venta : '';
-    if (stock) stock.value = p.cantidad != null ? p.cantidad : '';
-    if (precioUnit) precioUnit.value = p.precio_de_venta != null ? p.precio_de_venta : '';
-
-    printJsonPre(preId, { found: p });
-  } catch (err) {
-    console.error(err);
-    printJsonPre(preId, { error: err.message });
-    alert('Error al buscar producto: ' + err.message);
-  }
+  });
 }
 
-function onVentaCodigoKey(ev) {
-  if (ev.key === 'Enter') {
+// --- Helpers de cliente (ventas) ---
+function rellenarCliente(cliente){
+  if (!cliente) return;
+  if (inputIdCliente) inputIdCliente.value = cliente.id_cliente || '';
+  const inpNom  = formVenta.querySelector('[name="cliente_nombre"]');
+  const inpTel  = formVenta.querySelector('[name="cliente_telefono"]');
+  const inpMail = formVenta.querySelector('[name="cliente_email"]');
+
+  if (inpNom)  inpNom.value  = cliente.nombre   || '';
+  if (inpTel)  inpTel.value  = cliente.telefono || '';
+  if (inpMail) inpMail.value = cliente.email    || '';
+}
+
+// Buscar cliente por ID (NIT)
+async function buscarClientePorId(){
+  if (!inputIdCliente) return;
+  const id = (inputIdCliente.value || '').trim();
+  respCliente.textContent = '';
+
+  if (!id){
+    return;
+  }
+
+  appendResp(respCliente, { debug:'GET customer_fetch', id_cliente: id });
+
+  const data = await getWithToken('customer_fetch', { id_cliente: id });
+
+  if (!data || !data.ok || !data.customer){
+    showResp(respCliente, data || { error:'Cliente no encontrado' });
+    rellenarCliente({ id_cliente: id, nombre:'', telefono:'', email:'' });
+    return;
+  }
+
+  rellenarCliente(data.customer);
+  showResp(respCliente, data);
+}
+
+// --- Búsqueda de producto por código ---
+async function buscarProductoVenta(){
+  const id = (inputVentaCodigo.value || '').trim();
+  if (!id){
+    alert('Ingresa un código de artículo');
+    return;
+  }
+  ventaRespProducto.textContent = 'Buscando producto...';
+
+  const data = await getWithToken('product_fetch', { id });
+  if (!data || !data.ok || !data.product){
+    ventaRespProducto.textContent = '❌ Producto no encontrado';
+    limpiarProductoActual();
+    return;
+  }
+
+  const p = data.product;
+  const precio = Number(p.precio_de_venta || 0) || 0;
+  const stock  = Number(p.cantidad || 0) || 0;
+
+  inputVentaNombre.value    = p.nombre || '';
+  inputVentaPrecioSug.value = precio ? precio.toFixed(2) : '';
+  inputVentaPrecioUni.value = precio ? precio.toFixed(2) : '';
+  inputVentaStock.value     = stock;
+
+  ventaRespProducto.textContent =
+    `✅ ${p.nombre} • Precio sugerido: Q ${precio.toFixed(2)} • Stock: ${stock}`;
+}
+
+// Enter en el campo código
+inputVentaCodigo.addEventListener('keydown', (ev)=>{
+  if (ev.key === 'Enter'){
     ev.preventDefault();
-    onClickVentaBuscarProducto();
+    buscarProductoVenta();
   }
-}
+});
 
-function onClickVentaAgregarItem() {
-  const codigo = document.getElementById('ventaCodigo');
-  const nombre = document.getElementById('ventaNombre');
-  const sugerido = document.getElementById('ventaPrecioSugerido');
-  const stock = document.getElementById('ventaStock');
-  const cantidadEl = document.getElementById('ventaCantidad');
-  const precioUnitEl = document.getElementById('ventaPrecioUnitario');
+// Botón buscar
+document.getElementById('btnVentaBuscarProducto').addEventListener('click', ()=>{
+  buscarProductoVenta();
+});
 
-  if (!codigo || !nombre || !cantidadEl || !precioUnitEl) return;
+// --- Agregar item al carrito ---
+document.getElementById('btnVentaAgregarItem').addEventListener('click', ()=>{
+  const codigo = (inputVentaCodigo.value || '').trim();
+  const nombre = (inputVentaNombre.value || '').trim();
+  const cant   = Number(inputVentaCantidad.value || 0);
+  const precioSug = Number(inputVentaPrecioSug.value || 0);
+  const precioUni = Number(inputVentaPrecioUni.value || 0);
+  const stockActual = Number(inputVentaStock.value || 0);
 
-  const id_del_articulo = codigo.value.trim();
-  const nombreProd = nombre.value.trim();
-  const precioSugerido = Number(sugerido && sugerido.value ? sugerido.value : 0);
-  const stockNum = Number(stock && stock.value ? stock.value : 0);
-  const cantNum = Number(cantidadEl.value || 0);
-  const precioUnit = Number(precioUnitEl.value || 0);
-
-  if (!id_del_articulo) {
-    alert('Ingresa un código de artículo.');
+  if (!codigo){
+    alert('Ingresa el código del artículo y búscalo primero.');
     return;
   }
-  if (!nombreProd) {
-    alert('Primero busca el producto (para cargar nombre y precio).');
+  if (!nombre){
+    alert('Primero busca el producto para cargar su nombre y precio sugerido.');
     return;
   }
-  if (!cantNum || cantNum <= 0) {
+  if (!cant || cant <= 0){
     alert('La cantidad debe ser mayor que cero.');
     return;
   }
-  if (!precioUnit || precioUnit <= 0) {
+  if (!precioUni || precioUni <= 0){
     alert('El precio unitario debe ser mayor que cero.');
     return;
   }
-  if (stockNum && cantNum > stockNum) {
-    if (!confirm('La cantidad supera el stock actual. ¿Continuar de todas formas?')) {
-      return;
+
+  // Control de stock en el carrito
+  let yaEnCarrito = 0;
+  ventaItems.forEach(it => {
+    if (it.id_del_articulo === codigo) {
+      yaEnCarrito += Number(it.cantidad || 0);
     }
+  });
+
+  const disponible = stockActual - yaEnCarrito;
+
+  if (stockActual <= 0 || disponible <= 0) {
+    alert('Este producto no tiene existencias disponibles en este momento.');
+    return;
   }
 
-  VENTA_ITEMS.push({
-    id_del_articulo,
-    nombre: nombreProd,
-    cantidad: cantNum,
-    precio_sugerido: precioSugerido,
-    precio_unitario: precioUnit
+  if (cant > disponible) {
+    alert(`Solo hay ${disponible} unidad(es) disponibles de este producto. Ajusta la cantidad.`);
+    return;
+  }
+
+  ventaItems.push({
+    id_del_articulo: codigo,
+    nombre,
+    cantidad: cant,
+    precio_sugerido: precioSug || precioUni,
+    precio_unitario: precioUni
   });
 
   renderVentaItems();
-  clearVentaProductoForm();
-}
+  recomputeVentaTotals();
 
-function onClickVentaItemsBody(ev) {
-  const btn = ev.target.closest('.btnVentaQuitar');
+  inputVentaStock.value = disponible - cant;
+
+  inputVentaCodigo.value = '';
+  limpiarProductoActual();
+  inputVentaCodigo.focus();
+});
+
+// Eliminar item del carrito (delegación)
+ventaItemsBody.addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('.ventaRemoveItem');
   if (!btn) return;
   const idx = Number(btn.dataset.index);
-  if (!Number.isInteger(idx) || idx < 0 || idx >= VENTA_ITEMS.length) return;
-  VENTA_ITEMS.splice(idx, 1);
-  renderVentaItems();
-}
-
-async function onSubmitVenta(ev) {
-  ev.preventDefault();
-  const form = ev.target;
-  const preId = 'respVenta';
-
-  try {
-    if (!VENTA_ITEMS.length) {
-      throw new Error('Agrega al menos 1 producto a la venta.');
-    }
-
-    const fd = new FormData(form);
-    const cliente_nombre = (fd.get('cliente_nombre') || '').toString().trim();
-    if (!cliente_nombre) throw new Error('El nombre del cliente es obligatorio.');
-
-    const id_cliente = (fd.get('id_cliente') || '').toString().trim();
-    const cliente_telefono = (fd.get('cliente_telefono') || '').toString().trim();
-    const cliente_email = (fd.get('cliente_email') || '').toString().trim();
-    const notas = (fd.get('notas') || '').toString().trim();
-
-    const pago_inicial_monto = Number(fd.get('pago_inicial_monto') || 0);
-    const pago_inicial_forma = (fd.get('pago_inicial_forma') || '').toString().trim();
-    const plazo_dias = Number(fd.get('plazo_dias') || 0);
-
-    // Totales:
-    let totalBruto = 0;
-    let totalNeto = 0;
-    VENTA_ITEMS.forEach((it) => {
-      totalBruto += it.precio_sugerido * it.cantidad;
-      totalNeto += it.precio_unitario * it.cantidad;
-    });
-    const descuento = totalBruto - totalNeto;
-
-    const payload = {
-      id_cliente,
-      cliente_nombre,
-      cliente_telefono,
-      cliente_email,
-      notas,
-      items: VENTA_ITEMS,
-      totales: {
-        total_bruto: totalBruto,
-        total_descuento: descuento,
-        total_neto: totalNeto
-      },
-      pago_inicial: {
-        monto: pago_inicial_monto,
-        forma: pago_inicial_forma
-      },
-      plazo_dias
-    };
-
-    printJsonPre(preId, { sending: payload });
-
-    const url = buildApiUrl('sale_register');
-    const btn = document.getElementById('btnVentaRegistrar');
-    if (btn) btn.disabled = true;
-
-    const res = await fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await parseJsonResponse(res);
-    printJsonPre(preId, data);
-
-    if (!res.ok || data.ok === false) {
-      throw new Error(data.error || 'No se pudo registrar la venta');
-    }
-
-    LAST_SALE_ID = data.id_venta || data.id || data.sale_id || null;
-    if (LAST_SALE_ID) {
-      const btnComp = document.getElementById('btnVentaVerComprobante');
-      if (btnComp) btnComp.disabled = false;
-    }
-
-    VENTA_ITEMS = [];
+  if (!isNaN(idx) && idx >= 0 && idx < ventaItems.length){
+    ventaItems.splice(idx,1);
     renderVentaItems();
-    alert('Venta registrada correctamente.');
-  } catch (err) {
-    console.error(err);
-    printJsonPre(preId, { error: err.message });
-    alert('Error al registrar la venta: ' + err.message);
-  } finally {
-    const btn = document.getElementById('btnVentaRegistrar');
-    if (btn) btn.disabled = false;
+    recomputeVentaTotals();
   }
-}
+});
 
-function onClickVentaVerComprobante() {
-  if (!LAST_SALE_ID) {
-    alert('No hay una venta reciente para generar comprobante.');
-    return;
-  }
-  try {
-    const url = buildApiUrl('sale_receipt', { id_venta: LAST_SALE_ID });
-    window.open(url, '_blank');
-  } catch (err) {
-    alert('No se pudo generar el enlace de comprobante: ' + err.message);
-  }
-}
+// --- Guardar / actualizar cliente (customer_upsert) ---
+document.getElementById('btnVentaGuardarCliente').addEventListener('click', async ()=>{
+  respCliente.textContent = '';
 
-/* ======================================================
-   7) COMPRAS (purchase_register + product_fetch)
-   ====================================================== */
+  const fd = new FormData(formVenta);
+  const payload = {
+    id_cliente: fd.get('id_cliente') || '',
+    nombre:     fd.get('cliente_nombre') || '',
+    telefono:   fd.get('cliente_telefono') || '',
+    email:      fd.get('cliente_email') || ''
+  };
 
-let COMPRA_ITEMS = [];
-
-function renderCompraItems() {
-  const tbody = document.getElementById('compraItemsBody');
-  const totalEl = document.getElementById('compraTotalNeto');
-  if (!tbody) return;
-
-  if (!COMPRA_ITEMS.length) {
-    tbody.innerHTML = `
-      <tr><td colspan="6" style="text-align:center;opacity:.7;">
-        Sin productos en la compra.
-      </td></tr>`;
-    if (totalEl) totalEl.textContent = '0.00';
+  if (!payload.nombre){
+    alert('El nombre del cliente es obligatorio para guardarlo.');
     return;
   }
 
-  tbody.innerHTML = '';
-  let total = 0;
+  appendResp(respCliente, { debug:'POST customer_upsert', payload });
 
-  COMPRA_ITEMS.forEach((it, idx) => {
-    const subtotal = it.costo_unitario * it.cantidad;
-    total += subtotal;
+  const out = await postWithToken('customer_upsert', payload);
+  showResp(respCliente, out);
 
+  if (out && out.ok && out.id_cliente){
+    const idInput = formVenta.querySelector('[name="id_cliente"]');
+    if (idInput) idInput.value = out.id_cliente;
+  }
+});
+
+// Buscar cliente al usar el campo ID
+if (inputIdCliente){
+  inputIdCliente.addEventListener('keydown', (ev)=>{
+    if (ev.key === 'Enter'){
+      ev.preventDefault();
+      buscarClientePorId();
+    }
+  });
+
+  inputIdCliente.addEventListener('blur', ()=>{
+    buscarClientePorId();
+  });
+}
+
+// --- Registrar venta (sale_register) ---
+formVenta.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  respVenta.textContent = '';
+
+  if (!ventaItems.length){
+    alert('Agrega al menos un producto a la venta.');
+    return;
+  }
+
+  const fd = new FormData(formVenta);
+
+  const id_cliente       = (fd.get('id_cliente') || '').trim();
+  const cliente_nombre   = (fd.get('cliente_nombre') || '').trim();
+  const cliente_telefono = (fd.get('cliente_telefono') || '').trim();
+  const cliente_email    = (fd.get('cliente_email') || '').trim();
+  const notas            = (fd.get('notas') || '').trim();
+
+  if (!cliente_nombre){
+    alert('El nombre del cliente es obligatorio.');
+    return;
+  }
+
+  let pagoInicialMonto = Number(fd.get('pago_inicial_monto') || 0);
+  if (isNaN(pagoInicialMonto) || pagoInicialMonto < 0) pagoInicialMonto = 0;
+  const pagoInicialForma = (fd.get('pago_inicial_forma') || '').trim();
+  const plazoDias        = Number(fd.get('plazo_dias') || 0);
+
+  const payload = {
+    id_cliente,
+    cliente_nombre,
+    cliente_telefono,
+    cliente_email,
+    plazo_dias: plazoDias,
+    notas,
+    items: ventaItems.map(it => ({
+      id_del_articulo: it.id_del_articulo,
+      cantidad: it.cantidad,
+      precio_unitario: it.precio_unitario
+    }))
+  };
+
+  if (pagoInicialMonto > 0){
+    payload.pago_inicial = {
+      monto: pagoInicialMonto,
+      forma_pago: pagoInicialForma || ''
+    };
+  }
+
+  appendResp(respVenta, { debug:'POST sale_register', payload_preview: {
+    cliente_nombre,
+    items: payload.items.length
+  }});
+
+  const out = await postJSONWithToken('sale_register', payload);
+  showResp(respVenta, out);
+
+  if (out && out.ok){
+    ventaDocUrlUltima = out.doc_url || '';
+
+    if (btnVentaVerComprobante) {
+      btnVentaVerComprobante.disabled = !ventaDocUrlUltima;
+    }
+
+    alert(
+      `Venta registrada correctamente.\n` +
+      `ID: ${out.id_venta}\n` +
+      `Total: Q ${Number(out.total_neto || 0).toFixed(2)}`
+    );
+
+    if (ventaDocUrlUltima) {
+      window.open(ventaDocUrlUltima, '_blank');
+    }
+
+    resetVenta();
+  }
+});
+
+// ===================================================
+//                COMPRAS (módulo de compras)
+// ===================================================
+let compraItems = [];
+
+const formCompra            = document.getElementById('formCompra');
+const respCompra            = document.getElementById('respCompra');
+const compraItemsBody       = document.getElementById('compraItemsBody');
+const compraRespProducto    = document.getElementById('compraRespProducto');
+// Si existe un <pre id="respProveedorCompra"> lo usamos, si no, usamos respCompra como fallback
+const respProveedorCompra = document.getElementById('respProveedorCompra') || respCompra;
+
+
+const inputCompraCodigo     = document.getElementById('compraCodigo');
+const inputCompraNombre     = document.getElementById('compraNombre');
+const inputCompraCostoUnit  = document.getElementById('compraCostoUnitario');
+const inputCompraCantidad   = document.getElementById('compraCantidad');
+const inputCompraPrecioSug  = document.getElementById('compraPrecioSugerido');
+const spanCompraTotalNeto   = document.getElementById('compraTotalNeto');
+
+// Campos de proveedor dentro del formCompra
+let inputProvId, inputProvNombre, inputProvTel, inputProvMail, inputTipoDoc, inputNumDoc, inputNotasCompra;
+if (formCompra) {
+  inputProvId     = formCompra.querySelector('[name="id_proveedor"]');
+  inputProvNombre = formCompra.querySelector('[name="proveedor_nombre"]');
+  inputProvTel    = formCompra.querySelector('[name="proveedor_telefono"]');
+  inputProvMail   = formCompra.querySelector('[name="proveedor_email"]');
+  inputTipoDoc    = formCompra.querySelector('[name="tipo_documento"]');
+  inputNumDoc     = formCompra.querySelector('[name="numero_documento"]');
+  inputNotasCompra= formCompra.querySelector('[name="notas"]');
+}
+
+// Buscar proveedor al usar el campo ID (igual que clientes)
+if (inputProvId){
+  inputProvId.addEventListener('keydown', (ev)=>{
+    if (ev.key === 'Enter'){
+      ev.preventDefault();
+      buscarProveedorPorId();
+    }
+  });
+
+  inputProvId.addEventListener('blur', ()=>{
+    buscarProveedorPorId();
+  });
+}
+
+
+// --- Helpers de compras ---
+function limpiarProductoCompra(){
+  if (inputCompraNombre)    inputCompraNombre.value = '';
+  if (inputCompraCostoUnit) inputCompraCostoUnit.value = '';
+  if (inputCompraPrecioSug) inputCompraPrecioSug.value = '';
+  if (inputCompraCantidad)  inputCompraCantidad.value = '1';
+  if (compraRespProducto)   compraRespProducto.textContent = '';
+}
+
+function renderCompraItems(){
+  if (!compraItemsBody) return;
+  compraItemsBody.innerHTML = '';
+  compraItems.forEach((it, idx)=>{
+    const subtotal = it.cantidad * it.costo_unitario;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${it.id_del_articulo}</td>
       <td>${it.nombre}</td>
-      <td style="text-align:right;">${it.cantidad}</td>
-      <td style="text-align:right;">${formatMoneyGTQ(it.costo_unitario)}</td>
-      <td style="text-align:right;">${formatMoneyGTQ(subtotal)}</td>
-      <td style="text-align:center;">
-        <button type="button" data-index="${idx}" class="btn-secondary btnCompraQuitar">
-          ×
-        </button>
-      </td>
+      <td>${it.cantidad}</td>
+      <td>Q ${it.costo_unitario.toFixed(2)}</td>
+      <td>Q ${subtotal.toFixed(2)}</td>
+      <td><button type="button" class="compraRemoveItem" data-index="${idx}">✕</button></td>
     `;
-    tbody.appendChild(tr);
+    compraItemsBody.appendChild(tr);
   });
-
-  if (totalEl) totalEl.textContent = total.toFixed(2);
 }
 
-function clearCompraProductoForm() {
-  const codigo = document.getElementById('compraCodigo');
-  const nombre = document.getElementById('compraNombre');
-  const costo = document.getElementById('compraCostoUnitario');
-  const precioSugerido = document.getElementById('compraPrecioSugerido');
-  const cantidad = document.getElementById('compraCantidad');
+// --- Helpers de proveedor (compras) ---
+function rellenarProveedorCompra(prov){
+  if (!formCompra) return;
+  if (!prov) prov = {};
 
-  if (nombre) nombre.value = '';
-  if (costo) costo.value = '';
-  if (precioSugerido) precioSugerido.value = '';
-  if (cantidad) cantidad.value = '1';
-  if (codigo) codigo.focus();
+  if (inputProvId)     inputProvId.value     = prov.id_proveedor || '';
+  if (inputProvNombre) inputProvNombre.value = prov.nombre || prov.proveedor_nombre || '';
+  if (inputProvTel)    inputProvTel.value    = prov.telefono || prov.proveedor_telefono || '';
+  if (inputProvMail)   inputProvMail.value   = prov.email || prov.proveedor_email || '';
 }
 
-async function onClickCompraBuscarProducto() {
-  const codigo = document.getElementById('compraCodigo');
-  const preId = 'compraRespProducto';
-  if (!codigo) return;
+// Buscar proveedor por ID (código del proveedor)
+async function buscarProveedorPorId(){
+  if (!inputProvId) return;
 
-  const val = codigo.value.trim();
-  if (!val) {
-    alert('Ingresa un código de artículo para buscar.');
+  const id = (inputProvId.value || '').trim();
+  if (!id){
+    // Si se borra el campo, no hacemos nada
     return;
   }
 
-  try {
-    printJsonPre(preId, { info: 'Buscando producto...' });
-    const productos = await productFetch({ id_del_articulo: val });
-    if (!productos.length) {
-      throw new Error('No se encontró producto con ese código.');
+  if (respProveedorCompra) {
+    respProveedorCompra.textContent = '';
+    appendResp(respProveedorCompra, { debug:'GET supplier_fetch', id_proveedor: id });
+  }
+
+  const data = await getWithToken('supplier_fetch', { id_proveedor: id });
+
+  if (!data || !data.ok || !data.supplier){
+    if (respProveedorCompra){
+      showResp(respProveedorCompra, data || { error:'Proveedor no encontrado' });
     }
+    // Prellenamos solo el id y dejamos los otros vacíos para que el usuario los escriba
+    rellenarProveedorCompra({ id_proveedor: id, nombre:'', telefono:'', email:'' });
+    return;
+  }
 
-    const p = productos[0];
-    const nombre = document.getElementById('compraNombre');
-    const costo = document.getElementById('compraCostoUnitario');
-    const precioSugerido = document.getElementById('compraPrecioSugerido');
-
-    if (nombre) nombre.value = p.nombre || '';
-    if (costo) costo.value = p.costo_unitario != null ? p.costo_unitario : '';
-    if (precioSugerido) precioSugerido.value = p.precio_de_venta != null ? p.precio_de_venta : '';
-
-    printJsonPre(preId, { found: p });
-  } catch (err) {
-    console.error(err);
-    printJsonPre(preId, { error: err.message });
-    alert('Error al buscar producto: ' + err.message);
+  rellenarProveedorCompra(data.supplier);
+  if (respProveedorCompra){
+    showResp(respProveedorCompra, data);
   }
 }
 
-function onClickCompraAgregarItem() {
-  const codigo = document.getElementById('compraCodigo');
-  const nombre = document.getElementById('compraNombre');
-  const costo = document.getElementById('compraCostoUnitario');
-  const precioSugerido = document.getElementById('compraPrecioSugerido');
-  const cantidadEl = document.getElementById('compraCantidad');
+// --- Guardar / actualizar proveedor (supplier_upsert) ---
+const btnCompraGuardarProveedor = document.getElementById('btnCompraGuardarProveedor');
 
-  if (!codigo || !nombre || !costo || !cantidadEl) return;
+if (btnCompraGuardarProveedor && formCompra){
+  btnCompraGuardarProveedor.addEventListener('click', async ()=>{
+    if (respProveedorCompra) respProveedorCompra.textContent = '';
 
-  const id_del_articulo = codigo.value.trim();
-  const nombreProd = nombre.value.trim();
-  const costoUnitario = Number(costo.value || 0);
-  const cantNum = Number(cantidadEl.value || 0);
-  const precioVentaSugerido = Number(precioSugerido && precioSugerido.value ? precioSugerido.value : 0);
-
-  if (!id_del_articulo) {
-    alert('Ingresa un código de artículo.');
-    return;
-  }
-  if (!nombreProd) {
-    alert('Primero busca el producto (para cargar nombre, costo, etc.).');
-    return;
-  }
-  if (!cantNum || cantNum <= 0) {
-    alert('La cantidad debe ser mayor que cero.');
-    return;
-  }
-  if (!costoUnitario || costoUnitario <= 0) {
-    alert('El costo unitario debe ser mayor que cero.');
-    return;
-  }
-
-  COMPRA_ITEMS.push({
-    id_del_articulo,
-    nombre: nombreProd,
-    cantidad: cantNum,
-    costo_unitario: costoUnitario,
-    precio_venta_sugerido: precioVentaSugerido
-  });
-
-  renderCompraItems();
-  clearCompraProductoForm();
-}
-
-function onClickCompraItemsBody(ev) {
-  const btn = ev.target.closest('.btnCompraQuitar');
-  if (!btn) return;
-  const idx = Number(btn.dataset.index);
-  if (!Number.isInteger(idx) || idx < 0 || idx >= COMPRA_ITEMS.length) return;
-  COMPRA_ITEMS.splice(idx, 1);
-  renderCompraItems();
-}
-
-async function onSubmitCompra(ev) {
-  ev.preventDefault();
-  const form = ev.target;
-  const preId = 'respCompra';
-
-  try {
-    if (!COMPRA_ITEMS.length) {
-      throw new Error('Agrega al menos 1 producto a la compra.');
-    }
-
-    const fd = new FormData(form);
-    const proveedor_nombre = (fd.get('proveedor_nombre') || '').toString().trim();
-    if (!proveedor_nombre) throw new Error('El nombre del proveedor es obligatorio.');
-
+    const fd = new FormData(formCompra);
     const payload = {
-      id_proveedor: (fd.get('id_proveedor') || '').toString().trim(),
-      proveedor_nombre,
-      proveedor_telefono: (fd.get('proveedor_telefono') || '').toString().trim(),
-      proveedor_email: (fd.get('proveedor_email') || '').toString().trim(),
-      tipo_documento: (fd.get('tipo_documento') || '').toString().trim(),
-      numero_documento: (fd.get('numero_documento') || '').toString().trim(),
-      items: COMPRA_ITEMS,
-      notas: (fd.get('notas') || '').toString().trim()
+      id_proveedor: fd.get('id_proveedor') || '',
+      nombre:       fd.get('proveedor_nombre') || '',
+      telefono:     fd.get('proveedor_telefono') || '',
+      email:        fd.get('proveedor_email') || '',
+      notas:        fd.get('notas') || ''
     };
 
-    printJsonPre(preId, { sending: payload });
-
-    const url = buildApiUrl('purchase_register');
-    const btn = document.getElementById('btnCompraRegistrar');
-    if (btn) btn.disabled = true;
-
-    const res = await fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await parseJsonResponse(res);
-    printJsonPre(preId, data);
-
-    if (!res.ok || data.ok === false) {
-      throw new Error(data.error || 'No se pudo registrar la compra');
+    if (!payload.nombre){
+      alert('El nombre del proveedor es obligatorio para guardarlo.');
+      return;
     }
 
-    COMPRA_ITEMS = [];
+    if (respProveedorCompra){
+      appendResp(respProveedorCompra, { debug:'POST supplier_upsert', payload });
+    }
+
+    const out = await postWithToken('supplier_upsert', payload);
+    if (respProveedorCompra){
+      showResp(respProveedorCompra, out);
+    }
+
+    if (out && out.ok && out.id_proveedor){
+      if (inputProvId) inputProvId.value = out.id_proveedor;
+    }
+  });
+}
+
+function recomputeCompraTotals(){
+  let totalNeto = 0;
+  compraItems.forEach(it=>{
+    totalNeto += it.cantidad * it.costo_unitario;
+  });
+  if (spanCompraTotalNeto) {
+    spanCompraTotalNeto.textContent = totalNeto.toFixed(2);
+  }
+}
+
+function resetCompra(){
+  compraItems = [];
+  renderCompraItems();
+  recomputeCompraTotals();
+  if (respCompra) respCompra.textContent = '';
+  if (inputNotasCompra) inputNotasCompra.value = '';
+}
+
+// --- Buscar producto para compras ---
+async function buscarProductoCompra(){
+  const id = (inputCompraCodigo && inputCompraCodigo.value || '').trim();
+  if (!id){
+    alert('Ingresa un código de artículo');
+    return;
+  }
+  if (compraRespProducto) compraRespProducto.textContent = 'Buscando producto...';
+
+  const data = await getWithToken('product_fetch', { id });
+  if (!data || !data.ok || !data.product){
+    if (compraRespProducto) compraRespProducto.textContent = '❌ Producto no encontrado';
+    limpiarProductoCompra();
+    return;
+  }
+
+  const p = data.product;
+  const costo  = Number(p.costo || 0) || 0;
+  const precio = Number(p.precio_de_venta || 0) || 0;
+
+  if (inputCompraNombre)    inputCompraNombre.value = p.nombre || '';
+  if (inputCompraCostoUnit) inputCompraCostoUnit.value = costo ? costo.toFixed(2) : '';
+  if (inputCompraPrecioSug) inputCompraPrecioSug.value = precio ? precio.toFixed(2) : '';
+  if (inputCompraCantidad)  inputCompraCantidad.value = '1';
+
+  if (compraRespProducto){
+    compraRespProducto.textContent =
+      `✅ ${p.nombre} • Costo actual: ${costo ? 'Q ' + costo.toFixed(2) : '—'} • Precio de venta: ${precio ? 'Q ' + precio.toFixed(2) : '—'}`;
+  }
+}
+
+// Enter en código de compra
+if (inputCompraCodigo){
+  inputCompraCodigo.addEventListener('keydown', (ev)=>{
+    if (ev.key === 'Enter'){
+      ev.preventDefault();
+      buscarProductoCompra();
+    }
+  });
+}
+
+// Botón buscar producto (compras)
+const btnCompraBuscar = document.getElementById('btnCompraBuscarProducto');
+if (btnCompraBuscar){
+  btnCompraBuscar.addEventListener('click', ()=> buscarProductoCompra());
+}
+
+// --- Agregar item a la compra ---
+const btnCompraAgregarItem = document.getElementById('btnCompraAgregarItem');
+if (btnCompraAgregarItem){
+  btnCompraAgregarItem.addEventListener('click', ()=>{
+    const codigo = (inputCompraCodigo && inputCompraCodigo.value || '').trim();
+    const nombre = (inputCompraNombre && inputCompraNombre.value || '').trim();
+    const cant   = Number(inputCompraCantidad && inputCompraCantidad.value || 0);
+    const costo  = Number(inputCompraCostoUnit && inputCompraCostoUnit.value || 0);
+    const precioSug = Number(inputCompraPrecioSug && inputCompraPrecioSug.value || 0);
+
+    if (!codigo){
+      alert('Ingresa el código del artículo y búscalo primero.');
+      return;
+    }
+    if (!nombre){
+      alert('Primero busca el producto para cargar su nombre.');
+      return;
+    }
+    if (!cant || cant <= 0){
+      alert('La cantidad debe ser mayor que cero.');
+      return;
+    }
+    if (!costo || costo <= 0){
+      alert('El costo unitario debe ser mayor que cero.');
+      return;
+    }
+
+    compraItems.push({
+      id_del_articulo: codigo,
+      nombre,
+      cantidad: cant,
+      costo_unitario: costo,
+      precio_sugerido: precioSug || 0
+    });
+
     renderCompraItems();
-    alert('Compra registrada correctamente.');
-  } catch (err) {
-    console.error(err);
-    printJsonPre(preId, { error: err.message });
-    alert('Error al registrar la compra: ' + err.message);
-  } finally {
-    const btn = document.getElementById('btnCompraRegistrar');
-    if (btn) btn.disabled = false;
-  }
+    recomputeCompraTotals();
+
+    if (inputCompraCodigo) inputCompraCodigo.value = '';
+    limpiarProductoCompra();
+    if (inputCompraCodigo) inputCompraCodigo.focus();
+  });
 }
 
-/* ======================================================
-   8) MOVIMIENTOS & RECIBO (movement_register / movement_receipt)
-   ====================================================== */
+// Eliminar item del listado de compras
+if (compraItemsBody){
+  compraItemsBody.addEventListener('click', (ev)=>{
+    const btn = ev.target.closest('.compraRemoveItem');
+    if (!btn) return;
+    const idx = Number(btn.dataset.index);
+    if (!isNaN(idx) && idx >= 0 && idx < compraItems.length){
+      compraItems.splice(idx,1);
+      renderCompraItems();
+      recomputeCompraTotals();
+    }
+  });
+}
 
-async function onSubmitMovimiento(ev) {
-  ev.preventDefault();
-  const form = ev.target;
-  const preId = 'respMovimiento';
+// --- Registrar compra (purchase_register) ---
+if (formCompra){
+  formCompra.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    if (respCompra) respCompra.textContent = '';
 
-  try {
-    const fd = new FormData(form);
+    if (!compraItems.length){
+      alert('Agrega al menos un producto a la compra.');
+      return;
+    }
 
-    const operacion = (fd.get('operacion') || '').toString().trim();
-    const id_del_articulo = (fd.get('id_del_articulo') || '').toString().trim();
-    const cantidad = Number(fd.get('cantidad') || 0);
-    if (!operacion) throw new Error('La operación es obligatoria.');
-    if (!id_del_articulo) throw new Error('El Id del artículo es obligatorio.');
-    if (!cantidad || cantidad <= 0) throw new Error('La cantidad debe ser mayor que cero.');
+    const fd = new FormData(formCompra);
+
+    const proveedor_nombre = (fd.get('proveedor_nombre') || '').trim();
+    if (!proveedor_nombre){
+      alert('El nombre del proveedor es obligatorio.');
+      return;
+    }
 
     const payload = {
-      operacion,
-      id_del_articulo,
-      cantidad,
-      precio_unitario: fd.get('precio_unitario') !== null && fd.get('precio_unitario') !== ''
-        ? Number(fd.get('precio_unitario'))
-        : null,
-      costo_unitario: fd.get('costo_unitario') !== null && fd.get('costo_unitario') !== ''
-        ? Number(fd.get('costo_unitario'))
-        : null,
-      motivo: (fd.get('motivo') || '').toString().trim(),
-      usuario: (fd.get('usuario') || '').toString().trim(),
-      observaciones: (fd.get('observaciones') || '').toString().trim()
+      id_proveedor:       (fd.get('id_proveedor') || '').trim(),
+      proveedor_nombre,
+      proveedor_telefono: (fd.get('proveedor_telefono') || '').trim(),
+      proveedor_email:    (fd.get('proveedor_email') || '').trim(),
+      tipo_documento:     (fd.get('tipo_documento') || '').trim(),
+      numero_documento:   (fd.get('numero_documento') || '').trim(),
+      notas:              (fd.get('notas') || '').trim(),
+      items: compraItems.map(it => ({
+        id_del_articulo: it.id_del_articulo,
+        cantidad:        it.cantidad,
+        costo_unitario:  it.costo_unitario,
+        precio_sugerido: it.precio_sugerido
+      }))
     };
 
-    printJsonPre(preId, { sending: payload });
+    appendResp(respCompra, { debug:'POST purchase_register', payload_preview: {
+      proveedor_nombre,
+      items: payload.items.length
+    }});
 
-    const url = buildApiUrl('movement_register');
-    const res = await fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      body: JSON.stringify(payload)
+    const out = await postJSONWithToken('purchase_register', payload);
+    showResp(respCompra, out);
+
+    if (out && out.ok){
+      const total = Number(out.total_neto || 0);
+      alert(
+        `Compra registrada correctamente.\n` +
+        `ID: ${out.id_compra}\n` +
+        `Total: Q ${total.toFixed(2)}`
+      );
+      resetCompra();
+    }
+  });
+}
+
+
+
+// ===================================================
+//        RESUMEN DE VENTAS DEL DÍA (sales_summary)
+// ===================================================
+const formResumenVentas = document.getElementById('formResumenVentas');
+const respResumenVentas = document.getElementById('respResumenVentas');
+
+const totalesDiaBox    = document.getElementById('totales-dia');
+const detalleVentasTbody = document.getElementById('detalle-ventas-body');
+const resumenWrapper   = document.getElementById('resumenVentasWrapper');
+
+let chartVentas = null;
+let chartMargen = null;
+let ventasDelDia = [];
+let resumenDocUrlActual = '';
+
+// Crea (si no existe) el contenedor del detalle de una venta
+function ensureDetalleVentaBox() {
+  let box = document.getElementById('detalle-venta-seleccionada');
+  if (!box) {
+    box = document.createElement('section');
+    box.id = 'detalle-venta-seleccionada';
+    resumenWrapper.appendChild(box);
+  }
+  return box;
+}
+
+// Render totales del día
+function renderTotales(out) {
+  const t = out.totales || {};
+  const fecha = out.fecha || '';
+
+  if (!totalesDiaBox) return;
+
+  totalesDiaBox.innerHTML = `
+    <h4>Totales del día (${fecha})</h4>
+    <ul>
+      <li><strong>Total del día:</strong> Q ${Number(t.total_dia || 0).toFixed(2)}</li>
+      <li><strong>Contado:</strong> Q ${Number(t.contado || 0).toFixed(2)}</li>
+      <li><strong>Crédito:</strong> Q ${Number(t.credito || 0).toFixed(2)}</li>
+      <li><strong>Pagado hoy:</strong> Q ${Number(t.pagado_hoy || 0).toFixed(2)}</li>
+      <li><strong>Saldo pendiente:</strong> Q ${Number(t.saldo_pendiente || 0).toFixed(2)}</li>
+      <li><strong>Costo estimado:</strong> Q ${Number(t.costo_estimado || 0).toFixed(2)}</li>
+      <li><strong>Ganancia estimada:</strong> Q ${Number(t.ganancia_estimada || 0).toFixed(2)}</li>
+    </ul>
+  `;
+}
+
+// Renderiza o actualiza las gráficas (Chart.js)
+function renderCharts(out) {
+  const t = out.totales || {};
+  const totContado = Number(t.contado || 0);
+  const totCredito = Number(t.credito || 0);
+  const totCosto   = Number(t.costo_estimado || 0);
+  const totGan     = Number(t.ganancia_estimada || 0);
+
+  const canvasVentas = document.getElementById('chart-ventas');
+  const canvasMargen = document.getElementById('chart-margen');
+
+  if (!canvasVentas || !canvasMargen || typeof Chart === 'undefined') return;
+
+  if (chartVentas) chartVentas.destroy();
+  if (chartMargen) chartMargen.destroy();
+
+  chartVentas = new Chart(canvasVentas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Contado', 'Crédito'],
+      datasets: [{
+        data: [totContado, totCredito],
+        backgroundColor: ['#4e79a7', '#f28e2b']
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = totContado + totCredito || 1;
+              const v = ctx.parsed;
+              const pct = (v / total) * 100;
+              return `${ctx.label}: Q ${v.toFixed(2)} (${pct.toFixed(1)}%)`;
+            }
+          }
+        }
+      },
+      cutout: '60%'
+    }
+  });
+
+  chartMargen = new Chart(canvasMargen.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Costo', 'Ganancia'],
+      datasets: [{
+        data: [totCosto, totGan],
+        backgroundColor: ['#4e79a7', '#e15759']
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = totCosto + totGan || 1;
+              const v = ctx.parsed;
+              const pct = (v / total) * 100;
+              return `${ctx.label}: Q ${v.toFixed(2)} (${pct.toFixed(1)}%)`;
+            }
+          }
+        }
+      },
+      cutout: '60%'
+    }
+  });
+}
+
+// Pinta el detalle de una venta específica abajo de la tabla
+function renderDetalleVentaSeleccionada(venta) {
+  const box = ensureDetalleVentaBox();
+  if (!venta) {
+    box.innerHTML = '';
+    return;
+  }
+
+  const items = Array.isArray(venta.detalle_items) ? venta.detalle_items : [];
+  const tieneComprobante = !!(venta.doc_url);
+
+  let html = `
+    <div class="detalle-venta-header">
+      <span>Detalle de la venta ${venta.id_venta || ''} — ${venta.cliente || ''}</span>
+      ${
+        tieneComprobante
+          ? `<button type="button" id="btnDetalleVerComprobante">Ver comprobante</button>`
+          : `<button type="button" id="btnDetalleVerComprobante" disabled title="Esta venta no tiene comprobante registrado">Sin comprobante</button>`
+      }
+    </div>
+  `;
+
+  if (!items.length) {
+    html += `<p>Sin detalle de artículos para esta venta.</p>`;
+  } else {
+    html += `
+      <div class="table-wrapper">
+        <table class="tabla tabla-detalle-venta">
+          <thead>
+            <tr>
+              <th>Línea</th>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Cant.</th>
+              <th>Precio unit.</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    items.forEach(it => {
+      html += `
+        <tr>
+          <td>${it.linea || ''}</td>
+          <td>${it.id_del_articulo || ''}</td>
+          <td>${it.nombre || ''}</td>
+          <td>${Number(it.cantidad || 0)}</td>
+          <td>Q ${Number(it.precio_unitario || 0).toFixed(2)}</td>
+          <td>Q ${Number(it.subtotal || 0).toFixed(2)}</td>
+        </tr>
+      `;
     });
 
-    const data = await parseJsonResponse(res);
-    printJsonPre(preId, data);
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
 
-    if (!res.ok || data.ok === false) {
-      throw new Error(data.error || 'No se pudo registrar el movimiento');
-    }
+  box.innerHTML = html;
 
-    alert('Movimiento registrado correctamente. ID: ' + (data.id_movimiento || 'N/D'));
-  } catch (err) {
-    console.error(err);
-    printJsonPre(preId, { error: err.message });
-    alert('Error al registrar el movimiento: ' + err.message);
+  // Enlazar botón "Ver comprobante"
+  const btnComp = box.querySelector('#btnDetalleVerComprobante');
+  if (btnComp && venta.doc_url) {
+    btnComp.addEventListener('click', () => {
+      window.open(venta.doc_url, '_blank');
+    });
   }
 }
 
-async function onSubmitRecibo(ev) {
-  ev.preventDefault();
-  const form = ev.target;
-  const preId = 'respRecibo';
-
-  try {
-    const fd = new FormData(form);
-    const id_movimiento = (fd.get('id_movimiento') || '').toString().trim();
-    if (!id_movimiento) {
-      throw new Error('El ID de movimiento es obligatorio.');
-    }
-
-    const url = buildApiUrl('movement_receipt', { id_movimiento });
-    printJsonPre(preId, { open: url });
-
-    window.open(url, '_blank');
-  } catch (err) {
-    console.error(err);
-    printJsonPre(preId, { error: err.message });
-    alert('Error al generar recibo: ' + err.message);
+// Selecciona una venta (por índice) y actualiza resaltado + detalle
+function seleccionarVentaPorIndex(idx) {
+  if (!ventasDelDia.length || idx < 0 || idx >= ventasDelDia.length) {
+    renderDetalleVentaSeleccionada(null);
+    return;
   }
+
+  const venta = ventasDelDia[idx];
+  resumenDocUrlActual = venta.doc_url || '';
+
+  // Quitar clase de seleccionadas
+  detalleVentasTbody.querySelectorAll('tr').forEach(tr => {
+    tr.classList.remove('venta-row-selected');
+  });
+
+  // Agregar clase a la fila activa
+  const trSel = detalleVentasTbody.querySelector(`tr[data-index="${idx}"]`);
+  if (trSel) trSel.classList.add('venta-row-selected');
+
+  // Render detalle
+  renderDetalleVentaSeleccionada(venta);
 }
 
-/* ======================================================
-   9) DASHBOARD & REPORTES (mínimo, fácilmente ajustable)
-   ====================================================== */
+// Evento principal: submit del formulario de resumen
+if (formResumenVentas && respResumenVentas && detalleVentasTbody) {
+  formResumenVentas.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    respResumenVentas.textContent = '';
 
-// Dashboard simple (puedes adaptar el path a tu backend)
-async function loadDashboard() {
-  const kpiHoy = document.getElementById('kpiHoy');
-  const kpiMes = document.getElementById('kpiMes');
-  const kpiStockBajo = document.getElementById('kpiStockBajo');
-  const kpiInventario = document.getElementById('kpiInventario');
-  const lastSalesBody = document.getElementById('dashLastSalesBody');
+    const fd    = new FormData(formResumenVentas);
+    const fecha = (fd.get('fecha') || '').trim();
 
-  if (!kpiHoy || !lastSalesBody) return;
-
-  try {
-    const url = buildApiUrl('dashboard');
-    const res = await fetch(url, { method: 'GET', mode: 'cors' });
-    const data = await parseJsonResponse(res);
-    if (!res.ok || data.ok === false) {
-      throw new Error(data.error || 'Error en dashboard');
+    if (!fecha) {
+      alert('Selecciona una fecha.');
+      return;
     }
 
-    const kpi = data.kpi || {};
-    if (kpiHoy) kpiHoy.textContent = formatMoneyGTQ(kpi.ventas_hoy || 0);
-    if (kpiMes) kpiMes.textContent = formatMoneyGTQ(kpi.ventas_mes || 0);
-    if (kpiStockBajo) kpiStockBajo.textContent = kpi.stock_bajo || '—';
-    if (kpiInventario) kpiInventario.textContent = kpi.inventario_total || '—';
+    appendResp(respResumenVentas, {
+      debug: 'GET sales_summary',
+      fecha
+    });
 
-    const ultimas = data.ultimas_ventas || [];
-    lastSalesBody.innerHTML = '';
-    if (!ultimas.length) {
-      lastSalesBody.innerHTML =
-        '<tr><td colspan="4" style="text-align:center;opacity:.7;">Sin ventas recientes.</td></tr>';
-    } else {
-      ultimas.forEach((v) => {
+    try {
+      const out = await getWithToken('sales_summary', { fecha });
+
+      if (!out || !out.ok) {
+        showResp(respResumenVentas, out || { error: 'Sin respuesta' });
+        return;
+      }
+
+      // Guardar ventas en memoria
+      ventasDelDia = Array.isArray(out.detalle_ventas) ? out.detalle_ventas : [];
+
+      // Totales
+      renderTotales(out);
+
+      // Gráficas
+      renderCharts(out);
+
+      // Tabla de detalle (lista de ventas)
+      detalleVentasTbody.innerHTML = '';
+      ventasDelDia.forEach((v, idx) => {
         const tr = document.createElement('tr');
+        tr.dataset.index = String(idx);
         tr.innerHTML = `
           <td>${v.hora || ''}</td>
           <td>${v.cliente || ''}</td>
-          <td>${v.tipo || ''}</td>
-          <td style="text-align:right;">${formatMoneyGTQ(v.total_neto || 0)}</td>
+          <td>
+            <span class="venta-tipo ${v.tipo_venta === 'credito' ? 'badge-credito' : 'badge-contado'}">
+              ${v.tipo_venta || ''}
+            </span>
+          </td>
+          <td style="text-align:right;">Q ${Number(v.total_neto || 0).toFixed(2)}</td>
+          <td style="text-align:right;">Q ${Number(v.pagado || 0).toFixed(2)}</td>
+          <td style="text-align:right;">Q ${Number(v.saldo || 0).toFixed(2)}</td>
         `;
-        lastSalesBody.appendChild(tr);
+        detalleVentasTbody.appendChild(tr);
       });
-    }
 
-    if (window.Chart && data.ventas_7d) {
-      const ctx = document.getElementById('chart-ventas-7d');
-      if (ctx) {
-        new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: data.ventas_7d.labels || [],
-            datasets: [
-              {
-                label: 'Ventas (Q)',
-                data: data.ventas_7d.values || []
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            scales: {
-              y: {
-                beginAtZero: true
-              }
-            }
-          }
-        });
-      }
-    }
-  } catch (err) {
-    console.warn('Dashboard no cargado:', err.message);
-  }
-}
-
-/* === Reporte: Resumen de ventas del día ================= */
-
-async function onSubmitResumenVentas(ev) {
-  ev.preventDefault();
-  const form = ev.target;
-  const preId = 'respResumenVentas';
-
-  try {
-    const fd = new FormData(form);
-    const fecha = (fd.get('fecha') || '').toString().trim();
-
-    const url = buildApiUrl('sales_summary_day', fecha ? { fecha } : {});
-    const res = await fetch(url, { method: 'GET', mode: 'cors' });
-    const data = await parseJsonResponse(res);
-    printJsonPre(preId, data);
-
-    if (!res.ok || data.ok === false) {
-      throw new Error(data.error || 'No se pudo obtener el resumen');
-    }
-
-    const totales = data.totales || {};
-    const totalesDiaDiv = document.getElementById('totales-dia');
-    if (totalesDiaDiv) {
-      totalesDiaDiv.innerHTML = `
-        <p>Ventas contado: <strong>${formatMoneyGTQ(totales.contado || 0)}</strong></p>
-        <p>Ventas crédito: <strong>${formatMoneyGTQ(totales.credito || 0)}</strong></p>
-        <p>Total neto: <strong>${formatMoneyGTQ(totales.total_neto || 0)}</strong></p>
-      `;
-    }
-
-    // Tabla detalle
-    const tbody = document.getElementById('detalle-ventas-body');
-    if (tbody) {
-      const lst = data.ventas || [];
-      tbody.innerHTML = '';
-      if (!lst.length) {
-        tbody.innerHTML =
-          '<tr><td colspan="6" style="text-align:center;opacity:.7;">Sin ventas.</td></tr>';
+      // Seleccionar por defecto la primera venta (si hay)
+      if (ventasDelDia.length) {
+        seleccionarVentaPorIndex(0);
       } else {
-        lst.forEach((v) => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${v.hora || ''}</td>
-            <td>${v.cliente || ''}</td>
-            <td>${v.tipo || ''}</td>
-            <td style="text-align:right;">${formatMoneyGTQ(v.total_neto || 0)}</td>
-            <td style="text-align:right;">${formatMoneyGTQ(v.pagado || 0)}</td>
-            <td style="text-align:right;">${formatMoneyGTQ(v.saldo || 0)}</td>
-          `;
-          tbody.appendChild(tr);
-        });
+        renderDetalleVentaSeleccionada(null);
       }
+
+    } catch (err) {
+      showResp(respResumenVentas, { error: String(err) });
     }
+  });
 
-    // Gráficas
-    if (window.Chart && data.charts) {
-      const chVentas = document.getElementById('chart-ventas');
-      const chMargen = document.getElementById('chart-margen');
-
-      if (chVentas && data.charts.ventas) {
-        new Chart(chVentas, {
-          type: 'doughnut',
-          data: {
-            labels: ['Contado', 'Crédito'],
-            datasets: [
-              {
-                data: [
-                  data.charts.ventas.contado || 0,
-                  data.charts.ventas.credito || 0
-                ]
-              }
-            ]
-          },
-          options: { responsive: true }
-        });
-      }
-
-      if (chMargen && data.charts.margen) {
-        new Chart(chMargen, {
-          type: 'doughnut',
-          data: {
-            labels: ['Costo', 'Ganancia estimada'],
-            datasets: [
-              {
-                data: [
-                  data.charts.margen.costo || 0,
-                  data.charts.margen.ganancia || 0
-                ]
-              }
-            ]
-          },
-          options: { responsive: true }
-        });
-      }
+  // Delegación de eventos para clicks en filas de ventas
+  detalleVentasTbody.addEventListener('click', (ev) => {
+    const tr = ev.target.closest('tr[data-index]');
+    if (!tr) return;
+    const idx = Number(tr.dataset.index);
+    if (!Number.isNaN(idx)) {
+      seleccionarVentaPorIndex(idx);
     }
-  } catch (err) {
-    console.error(err);
-    printJsonPre(preId, { error: err.message });
-    alert('Error al obtener resumen de ventas: ' + err.message);
+  });
+}
+
+// ===================================================
+//        REPORTES AVANZADOS (sales_report)
+// ===================================================
+
+// Referencias DOM
+const formReportesAvanzados = document.getElementById('formReportesAvanzados');
+const repAvDesde            = document.getElementById('repAvDesde');
+const repAvHasta            = document.getElementById('repAvHasta');
+const repAvWrapper          = document.getElementById('repAvWrapper');
+const repAvTotalesBox       = document.getElementById('repAvTotales');
+const repAvPorDiaBody       = document.getElementById('repAvPorDiaBody');
+const repAvTopProdBody      = document.getElementById('repAvTopProdBody');
+const repAvTopCliBody       = document.getElementById('repAvTopCliBody');
+const repAvCxcBody          = document.getElementById('repAvCxcBody');
+const repAvDebugPre         = document.getElementById('repAvDebug');
+
+
+// ===================================================
+//   REPORTES AVANZADOS DE COMPRAS (purchases_report)
+// ===================================================
+const formReportesCompras = document.getElementById('formReportesCompras');
+const repCompDesde        = document.getElementById('repCompDesde');
+const repCompHasta        = document.getElementById('repCompHasta');
+const repCompWrapper      = document.getElementById('repCompWrapper');
+const repCompTotalesBox   = document.getElementById('repCompTotales');
+const repCompPorDiaBody   = document.getElementById('repCompPorDiaBody');
+const repCompTopProdBody  = document.getElementById('repCompTopProdBody');
+const repCompTopProvBody  = document.getElementById('repCompTopProvBody');
+const repCompDebugPre     = document.getElementById('repCompDebug');
+
+
+// Llamada al endpoint (reutilizamos getWithToken)
+async function fetchSalesReport(desde, hasta) {
+  return await getWithToken('sales_report', { desde, hasta });
+}
+
+// Llamada al endpoint de COMPRAS
+async function fetchPurchasesReport(desde, hasta) {
+  return await getWithToken('purchases_report', { desde, hasta });
+}
+
+// Pintar el reporte avanzado
+function renderSalesReport(data) {
+  if (!repAvWrapper) return;
+
+  repAvWrapper.style.display = 'block';
+
+  // --- Totales del rango ---
+  if (repAvTotalesBox) {
+    repAvTotalesBox.innerHTML = '';
+    const t = data.totales || {};
+    const cards = [
+      { label: 'Total del rango',      value: formatQ(t.total_rango) },
+      { label: 'Contado',              value: formatQ(t.contado) },
+      { label: 'Crédito',              value: formatQ(t.credito) },
+      { label: 'Pagado en el rango',   value: formatQ(t.pagado_rango) },
+      { label: 'Saldo pendiente',      value: formatQ(t.saldo_pendiente) },
+      { label: 'Costo estimado',       value: formatQ(t.costo_estimado) },
+      { label: 'Ganancia estimada',    value: formatQ(t.ganancia_estimada) }
+    ];
+
+    cards.forEach(card => {
+      const div = document.createElement('div');
+      div.style.flex = '1 1 160px';
+      div.style.minWidth = '150px';
+      div.style.padding = '12px';
+      div.style.borderRadius = '10px';
+      div.style.border = '1px solid #ddd';
+      div.style.background = '#fafafa';
+
+      const label = document.createElement('div');
+      label.style.fontSize = '0.85rem';
+      label.style.color = '#555';
+      label.textContent = card.label;
+
+      const val = document.createElement('div');
+      val.style.fontSize = '1.1rem';
+      val.style.fontWeight = '600';
+      val.textContent = card.value;
+
+      div.appendChild(label);
+      div.appendChild(val);
+      repAvTotalesBox.appendChild(div);
+    });
+  }
+
+  // --- Ventas por día ---
+  if (repAvPorDiaBody) {
+    repAvPorDiaBody.innerHTML = '';
+    const porDia = data.por_dia || [];
+
+    porDia.forEach(dia => {
+      const tr = document.createElement('tr');
+
+      const tdFecha = document.createElement('td');
+      tdFecha.textContent = dia.fecha;
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(dia.total_dia);
+
+      const tdContado = document.createElement('td');
+      tdContado.style.textAlign = 'right';
+      tdContado.textContent = formatQ(dia.contado);
+
+      const tdCredito = document.createElement('td');
+      tdCredito.style.textAlign = 'right';
+      tdCredito.textContent = formatQ(dia.credito);
+
+      const tdPagado = document.createElement('td');
+      tdPagado.style.textAlign = 'right';
+      tdPagado.textContent = formatQ(dia.pagado_dia);
+
+      const tdSaldo = document.createElement('td');
+      tdSaldo.style.textAlign = 'right';
+      tdSaldo.textContent = formatQ(dia.saldo_pendiente);
+
+      tr.appendChild(tdFecha);
+      tr.appendChild(tdTotal);
+      tr.appendChild(tdContado);
+      tr.appendChild(tdCredito);
+      tr.appendChild(tdPagado);
+      tr.appendChild(tdSaldo);
+      repAvPorDiaBody.appendChild(tr);
+    });
+
+    if (!porDia.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.textContent = 'No hay ventas en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repAvPorDiaBody.appendChild(tr);
+    }
+  }
+
+  // --- Top productos ---
+  if (repAvTopProdBody) {
+    repAvTopProdBody.innerHTML = '';
+    const topP = data.top_productos || [];
+
+    topP.forEach(p => {
+      const tr = document.createElement('tr');
+
+      const tdCod = document.createElement('td');
+      tdCod.textContent = p.id_del_articulo || '';
+
+      const tdNom = document.createElement('td');
+      tdNom.textContent = p.nombre || '';
+
+      const tdCant = document.createElement('td');
+      tdCant.style.textAlign = 'right';
+      tdCant.textContent = p.cantidad != null ? p.cantidad : '';
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(p.total_neto);
+
+      tr.appendChild(tdCod);
+      tr.appendChild(tdNom);
+      tr.appendChild(tdCant);
+      tr.appendChild(tdTotal);
+      repAvTopProdBody.appendChild(tr);
+    });
+
+    if (!topP.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.textContent = 'No hay productos vendidos en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repAvTopProdBody.appendChild(tr);
+    }
+  }
+
+  // --- Top clientes ---
+  if (repAvTopCliBody) {
+    repAvTopCliBody.innerHTML = '';
+    const topC = data.top_clientes || [];
+
+    topC.forEach(c => {
+      const tr = document.createElement('tr');
+
+      const tdNom = document.createElement('td');
+      tdNom.textContent = c.nombre || c.id_cliente || '';
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(c.total_neto);
+
+      const tdSaldo = document.createElement('td');
+      tdSaldo.style.textAlign = 'right';
+      tdSaldo.textContent = formatQ(c.saldo_pendiente);
+
+      tr.appendChild(tdNom);
+      tr.appendChild(tdTotal);
+      tr.appendChild(tdSaldo);
+      repAvTopCliBody.appendChild(tr);
+    });
+
+    if (!topC.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 3;
+      td.textContent = 'No hay clientes con compras en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repAvTopCliBody.appendChild(tr);
+    }
+  }
+
+  // --- Cuentas por cobrar ---
+  if (repAvCxcBody) {
+    repAvCxcBody.innerHTML = '';
+    const cxc = data.cuentas_por_cobrar || [];
+
+    cxc.forEach(c => {
+      const tr = document.createElement('tr');
+
+      const tdNom = document.createElement('td');
+      tdNom.textContent = c.nombre || c.id_cliente || '';
+
+      const tdSaldo = document.createElement('td');
+      tdSaldo.style.textAlign = 'right';
+      tdSaldo.textContent = formatQ(c.saldo_pendiente_total);
+
+      const tdVentas = document.createElement('td');
+      tdVentas.style.textAlign = 'right';
+      tdVentas.textContent = c.ventas_pendientes != null ? c.ventas_pendientes : '';
+
+      tr.appendChild(tdNom);
+      tr.appendChild(tdSaldo);
+      tr.appendChild(tdVentas);
+      repAvCxcBody.appendChild(tr);
+    });
+
+    if (!cxc.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 3;
+      td.textContent = 'No hay cuentas por cobrar en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repAvCxcBody.appendChild(tr);
+    }
+  }
+
+  // --- Debug JSON ---
+  if (repAvDebugPre) {
+    repAvDebugPre.textContent = JSON.stringify(data, null, 2);
   }
 }
 
-/* ======================================================
-   10) INICIALIZACIÓN GLOBAL
-   ====================================================== */
+// Pintar el reporte avanzado de COMPRAS
+function renderPurchasesReport(data) {
+  if (!repCompWrapper) return;
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Config API
-  hydrateApiConfig();
-  const btnSaveApi = document.getElementById('saveApi');
-  if (btnSaveApi) {
-    btnSaveApi.addEventListener('click', onClickSaveApi);
+  repCompWrapper.style.display = 'block';
+
+  // --- Totales del rango de compras ---
+  if (repCompTotalesBox) {
+    repCompTotalesBox.innerHTML = '';
+    const t = data.totales || {};
+    const cards = [
+      { label: 'Total compras del rango', value: formatQ(t.total_rango) }
+    ];
+
+    cards.forEach(card => {
+      const div = document.createElement('div');
+      div.style.flex = '1 1 160px';
+      div.style.minWidth = '150px';
+      div.style.padding = '12px';
+      div.style.borderRadius = '10px';
+      div.style.border = '1px solid #ddd';
+      div.style.background = '#fafafa';
+
+      const label = document.createElement('div');
+      label.style.fontSize = '0.85rem';
+      label.style.color = '#555';
+      label.textContent = card.label;
+
+      const val = document.createElement('div');
+      val.style.fontSize = '1.1rem';
+      val.style.fontWeight = '600';
+      val.textContent = card.value;
+
+      div.appendChild(label);
+      div.appendChild(val);
+      repCompTotalesBox.appendChild(div);
+    });
   }
 
-  // Tabs
-  setupTabs();
+  // --- Compras por día ---
+  if (repCompPorDiaBody) {
+    repCompPorDiaBody.innerHTML = '';
+    const porDia = data.por_dia || [];
 
-  // Productos
-  const formProducto = document.getElementById('formProducto');
-  if (formProducto) {
-    formProducto.addEventListener('submit', onSubmitProducto);
-    const btnCargar = document.getElementById('cargarProducto');
-    if (btnCargar) {
-      btnCargar.addEventListener('click', onClickCargarProducto);
+    porDia.forEach(dia => {
+      const tr = document.createElement('tr');
+
+      const tdFecha = document.createElement('td');
+      tdFecha.textContent = dia.fecha;
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(dia.total_dia);
+
+      tr.appendChild(tdFecha);
+      tr.appendChild(tdTotal);
+      repCompPorDiaBody.appendChild(tr);
+    });
+
+    if (!porDia.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 2;
+      td.textContent = 'No hay compras en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repCompPorDiaBody.appendChild(tr);
     }
   }
 
-  // Fotos
-  const formFoto = document.getElementById('formFoto');
-  if (formFoto) {
-    formFoto.addEventListener('submit', onSubmitFoto);
+  // --- Top productos comprados ---
+  if (repCompTopProdBody) {
+    repCompTopProdBody.innerHTML = '';
+    const topP = data.top_productos || [];
+
+    topP.forEach(p => {
+      const tr = document.createElement('tr');
+
+      const tdCod = document.createElement('td');
+      tdCod.textContent = p.id_del_articulo || '';
+
+      const tdNom = document.createElement('td');
+      tdNom.textContent = p.nombre || '';
+
+      const tdCant = document.createElement('td');
+      tdCant.style.textAlign = 'right';
+      tdCant.textContent = p.cantidad != null ? p.cantidad : '';
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(p.total_neto);
+
+      tr.appendChild(tdCod);
+      tr.appendChild(tdNom);
+      tr.appendChild(tdCant);
+      tr.appendChild(tdTotal);
+      repCompTopProdBody.appendChild(tr);
+    });
+
+    if (!topP.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.textContent = 'No hay productos comprados en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repCompTopProdBody.appendChild(tr);
+    }
   }
 
-  // Ventas
-  const formVenta = document.getElementById('formVenta');
-  if (formVenta) {
-    formVenta.addEventListener('submit', onSubmitVenta);
-    const btnBuscarProd = document.getElementById('btnVentaBuscarProducto');
-    const btnAgregarItem = document.getElementById('btnVentaAgregarItem');
-    const btnVerComp = document.getElementById('btnVentaVerComprobante');
-    const codigo = document.getElementById('ventaCodigo');
-    const tbody = document.getElementById('ventaItemsBody');
+  // --- Top proveedores ---
+  if (repCompTopProvBody) {
+    repCompTopProvBody.innerHTML = '';
+    const topProv = data.top_proveedores || [];
 
-    if (btnBuscarProd) btnBuscarProd.addEventListener('click', onClickVentaBuscarProducto);
-    if (btnAgregarItem) btnAgregarItem.addEventListener('click', onClickVentaAgregarItem);
-    if (btnVerComp) btnVerComp.addEventListener('click', onClickVentaVerComprobante);
-    if (codigo) codigo.addEventListener('keydown', onVentaCodigoKey);
-    if (tbody) tbody.addEventListener('click', onClickVentaItemsBody);
+    topProv.forEach(pv => {
+      const tr = document.createElement('tr');
+
+      const tdNom = document.createElement('td');
+      tdNom.textContent = pv.nombre || pv.id_proveedor || '';
+
+      const tdTotal = document.createElement('td');
+      tdTotal.style.textAlign = 'right';
+      tdTotal.textContent = formatQ(pv.total_neto);
+
+      tr.appendChild(tdNom);
+      tr.appendChild(tdTotal);
+      repCompTopProvBody.appendChild(tr);
+    });
+
+    if (!topProv.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 2;
+      td.textContent = 'No hay proveedores con compras en este rango.';
+      td.style.fontStyle = 'italic';
+      tr.appendChild(td);
+      repCompTopProvBody.appendChild(tr);
+    }
   }
 
-  // Compras
-  const formCompra = document.getElementById('formCompra');
-  if (formCompra) {
-    formCompra.addEventListener('submit', onSubmitCompra);
-    const btnBuscarProdC = document.getElementById('btnCompraBuscarProducto');
-    const btnAgregarItemC = document.getElementById('btnCompraAgregarItem');
-    const tbodyC = document.getElementById('compraItemsBody');
+  // --- Debug JSON de compras ---
+  if (repCompDebugPre) {
+    repCompDebugPre.textContent = JSON.stringify(data, null, 2);
+  }
+}
 
-    if (btnBuscarProdC) btnBuscarProdC.addEventListener('click', onClickCompraBuscarProducto);
-    if (btnAgregarItemC) btnAgregarItemC.addEventListener('click', onClickCompraAgregarItem);
-    if (tbodyC) tbodyC.addEventListener('click', onClickCompraItemsBody);
+
+// Listener del formulario de reportes avanzados
+if (formReportesAvanzados && repAvDesde && repAvHasta) {
+  // Prellenar: últimos 7 días
+  const hoy = new Date();
+  const hastaISO = hoy.toISOString().slice(0, 10);
+  const dDesde = new Date(hoy);
+  dDesde.setDate(dDesde.getDate() - 7);
+  const desdeISO = dDesde.toISOString().slice(0, 10);
+
+  if (!repAvDesde.value) repAvDesde.value = desdeISO;
+  if (!repAvHasta.value) repAvHasta.value = hastaISO;
+
+  formReportesAvanzados.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+
+    const desde = repAvDesde.value || '';
+    const hasta = repAvHasta.value || '';
+
+    if (!desde || !hasta) {
+      alert('Debes indicar una fecha "Desde" y "Hasta".');
+      return;
+    }
+    if (desde > hasta) {
+      alert('La fecha "Desde" no puede ser mayor que "Hasta".');
+      return;
+    }
+
+    try {
+      const data = await fetchSalesReport(desde, hasta);
+      if (!data || !data.ok) {
+        alert('Error en el reporte: ' + (data && data.error ? data.error : 'desconocido'));
+        if (repAvDebugPre) {
+          repAvDebugPre.textContent = JSON.stringify(data, null, 2);
+        }
+        return;
+      }
+      renderSalesReport(data);
+    } catch (err) {
+      console.error(err);
+      alert('Error al cargar el reporte avanzado. Revisa la consola.');
+    }
+  });
+}
+
+// Listener del formulario de reportes avanzados de COMPRAS
+if (formReportesCompras && repCompDesde && repCompHasta) {
+  // Prellenar: últimos 7 días también
+  const hoy = new Date();
+  const hastaISO = hoy.toISOString().slice(0, 10);
+  const dDesde = new Date(hoy);
+  dDesde.setDate(dDesde.getDate() - 7);
+  const desdeISO = dDesde.toISOString().slice(0, 10);
+
+  if (!repCompDesde.value) repCompDesde.value = desdeISO;
+  if (!repCompHasta.value) repCompHasta.value = hastaISO;
+
+  formReportesCompras.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+
+    const desde = repCompDesde.value || '';
+    const hasta = repCompHasta.value || '';
+
+    if (!desde || !hasta) {
+      alert('Debes indicar una fecha "Desde" y "Hasta" para compras.');
+      return;
+    }
+    if (desde > hasta) {
+      alert('La fecha "Desde" no puede ser mayor que "Hasta".');
+      return;
+    }
+
+    try {
+      const data = await fetchPurchasesReport(desde, hasta);
+      if (!data || !data.ok) {
+        alert('Error en el reporte de compras: ' + (data && data.error ? data.error : 'desconocido'));
+        if (repCompDebugPre) {
+          repCompDebugPre.textContent = JSON.stringify(data, null, 2);
+        }
+        return;
+      }
+      renderPurchasesReport(data);
+    } catch (err) {
+      console.error(err);
+      alert('Error al cargar el reporte de compras. Revisa la consola.');
+    }
+  });
+}
+// ===================================================
+//                  DASHBOARD PRINCIPAL
+// ===================================================
+async function cargarDashboard() {
+  try {
+    // 1. KPIs generales
+    const stats = await getWithToken("dashboard_stats", {});
+    console.log("dashboard_stats:", stats); // opcional para ver el JSON
+
+    if (stats && stats.ok) {
+      // Soporta la estructura actual {ventas_hoy, ventas_mes, ...}
+      // y una futura estructura anidada en stats.kpi (por si luego la cambiamos)
+      const src = stats.kpi || stats;
+
+      const ventasHoy       = src.ventas_hoy ?? src.hoy ?? 0;
+      const ventasMes       = src.ventas_mes ?? src.mes ?? 0;
+      const stockBajo       = src.stock_bajo ?? 0;
+      const inventarioTotal = src.inventario_total ?? 0;
+
+      document.getElementById("kpiHoy").textContent        = formatQ(ventasHoy);
+      document.getElementById("kpiMes").textContent        = formatQ(ventasMes);
+      document.getElementById("kpiStockBajo").textContent  = formatEntero(stockBajo);
+      document.getElementById("kpiInventario").textContent = formatQ(inventarioTotal);
+    } else {
+      console.warn("dashboard_stats sin datos válidos:", stats);
+    }
+
+    // 2. Últimos 7 días
+    const ult7 = await getWithToken("dashboard_last7", {});
+    if (ult7 && ult7.ok) {
+      renderChartUltimos7(ult7.data || []);
+    }
+
+    // 3. Últimas ventas
+    const last = await getWithToken("dashboard_last_sales", {});
+    renderUltimasVentas(last && last.ok ? last.ventas : []);
+  }
+  catch (err) {
+    console.error("Error en dashboard:", err);
+  }
+}
+
+function renderUltimasVentas(lista) {
+  const tbody = document.getElementById("dashLastSalesBody");
+  tbody.innerHTML = "";
+
+  if (!lista || !lista.length) {
+    tbody.innerHTML = `<tr><td colspan="4">Sin ventas recientes</td></tr>`;
+    return;
   }
 
-  // Movimientos
-  const formMovimiento = document.getElementById('formMovimiento');
-  if (formMovimiento) {
-    formMovimiento.addEventListener('submit', onSubmitMovimiento);
+  lista.forEach(v => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${v.hora || ""}</td>
+      <td>${v.cliente || ""}</td>
+      <td>${v.tipo_venta || ""}</td>
+      <td style="text-align:right;">${formatQ(v.total_neto ?? v.total)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+let chartUltimos7 = null;
+
+function renderChartUltimos7(data) {
+  const labels  = data.map(d => d.fecha);
+  const valores = data.map(d => d.total);
+
+  const canvas = document.getElementById("chart-ventas-7d");
+  if (!canvas || typeof Chart === "undefined") return;
+
+  const ctx = canvas.getContext("2d");
+
+  if (chartUltimos7) {
+    chartUltimos7.destroy();
   }
 
-  const formRecibo = document.getElementById('formRecibo');
-  if (formRecibo) {
-    formRecibo.addEventListener('submit', onSubmitRecibo);
+  chartUltimos7 = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Ventas (Q)",
+        data: valores,
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHitRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      tension: 0.3,
+      scales: {
+        y: {
+          ticks: {
+            callback: (value) => formatQ(value)
+          }
+        }
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `Ventas: ${formatQ(ctx.parsed.y)}`
+          }
+        },
+        legend: {
+          display: true
+        }
+      }
+    }
+  });
+}
+
+
+
+// Llamar dashboard al abrir la pestaña Inicio
+document.querySelector('[data-tab="dashboard"]')
+  .addEventListener("click", cargarDashboard);
+
+// Carga inicial al iniciar sesión
+setTimeout(cargarDashboard, 800);
+
+// ===============================================
+//    CONTROL DE TAB INICIAL SEGÚN ROLES
+// ===============================================
+
+// Esta función será llamada desde auth.js cuando
+// ya conozcamos los roles del usuario.
+window.activarTabInicial = function(roles) {
+  if (!Array.isArray(roles)) return;
+
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+
+  let tabSeleccionado = null;
+
+  // 1) Si el usuario es admin → Dashboard
+  if (roles.includes('admin')) {
+    tabSeleccionado = tabs.find(btn => btn.dataset.tab === 'dashboard');
   }
 
-  // Reporte: Resumen de ventas del día
-  const formResumenVentas = document.getElementById('formResumenVentas');
-  if (formResumenVentas) {
-    formResumenVentas.addEventListener('submit', onSubmitResumenVentas);
+  // 2) Si no es admin → primer tab permitido según data-roles
+  if (!tabSeleccionado) {
+    tabSeleccionado = tabs.find(btn => {
+      const allowed = (btn.dataset.roles || '')
+        .split(',')
+        .map(r => r.trim())
+        .filter(Boolean);
+      return roles.some(r => allowed.includes(r));
+    });
   }
 
-  // Cargar dashboard al inicio (si la API está lista; si no, solo fallará en silencio)
-  loadDashboard().catch((e) => console.warn('Dashboard no inicializado:', e.message));
-});
+  if (!tabSeleccionado) return;
+
+  const tabName = tabSeleccionado.dataset.tab;
+
+  // Activar el tab correcto
+  tabs.forEach(btn => {
+    btn.classList.toggle('active', btn === tabSeleccionado);
+  });
+
+  // Activar solo el panel correspondiente
+  document.querySelectorAll('.panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === tabName);
+  });
+
+  // Si es el dashboard, cargarlo
+  if (tabName === 'dashboard') {
+    setTimeout(cargarDashboard, 300);
+  }
+};
