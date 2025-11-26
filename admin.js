@@ -136,13 +136,44 @@ document.getElementById('formProducto').addEventListener('submit', async (e)=>{
   const respEl = document.getElementById('respProducto');
   respEl.textContent = '';
 
-  // Tomamos los campos y eliminamos vacíos
-  const raw = Object.fromEntries(new FormData(e.target).entries());
-  Object.keys(raw).forEach(k=>{ if(raw[k]==='' || raw[k]==null) delete raw[k]; });
+  const fd = new FormData(e.target);
 
-  appendResp(respEl, { debug:'POST product_upsert' });
+  const id_del_articulo = (fd.get('id_del_articulo') || '').toString().trim();
+  const nombre          = (fd.get('nombre') || '').toString().trim();
 
-  const out = await postWithToken('product_upsert', raw);
+  if (!id_del_articulo) {
+    alert('El campo "Id del artículo" es obligatorio.');
+    return;
+  }
+  if (!nombre) {
+    alert('El campo "Nombre" es obligatorio.');
+    return;
+  }
+
+  // Construimos payload tipando numéricos
+  const payload = {
+    id_del_articulo,
+    nombre,
+    categoria:   (fd.get('categoria')   || '').toString().trim(),
+    moneda:      ((fd.get('moneda')     || 'GTQ').toString().trim()) || 'GTQ',
+    status:      (fd.get('status')      || '').toString().trim(),
+    image_url:   (fd.get('image_url')   || '').toString().trim(),
+    descripcion: (fd.get('descripcion') || '').toString().trim()
+  };
+
+  const precioStr = fd.get('precio_de_venta');
+  if (precioStr !== null && precioStr !== '') {
+    payload.precio_de_venta = Number(precioStr);
+  }
+
+  const cantStr = fd.get('cantidad');
+  if (cantStr !== null && cantStr !== '') {
+    payload.cantidad = Number(cantStr);
+  }
+
+  appendResp(respEl, { debug:'POST product_upsert', payload });
+
+  const out = await postWithToken('product_upsert', payload);
   showResp(respEl, out);
 });
 
@@ -150,20 +181,39 @@ document.getElementById('cargarProducto').addEventListener('click', async ()=>{
   const respEl = document.getElementById('respProducto');
   respEl.textContent = '';
 
-  const id = document.querySelector('#formProducto [name="id_del_articulo"]').value.trim();
-  if(!id){ alert('Ingresa un id_del_articulo'); return; }
+  const form = document.getElementById('formProducto');
+  const id   = form.querySelector('[name="id_del_articulo"]').value.trim();
 
-  appendResp(respEl, { debug:'GET product_fetch', id });
+  if(!id){
+    alert('Ingresa un id_del_articulo');
+    return;
+  }
 
-  const data = await getWithToken('product_fetch', { id });
+  appendResp(respEl, { debug:'GET product_fetch', id_del_articulo: id });
+
+  // Mandamos ambos parámetros para ser compatibles:
+  const data = await getWithToken('product_fetch', {
+    id_del_articulo: id,
+    id: id
+  });
+
   showResp(respEl, data);
 
-  if(data && data.product){
-    const f = document.getElementById('formProducto');
-    for(const k in data.product){
-      const el = f.querySelector(`[name="${k}"]`);
-      if(el) el.value = data.product[k];
+  // Acepta { product: {...} } o { products: [...] }
+  let p = null;
+  if (data) {
+    if (data.product) p = data.product;
+    else if (Array.isArray(data.products) && data.products.length) {
+      p = data.products[0];
     }
+  }
+  if (!p) return;
+
+  // Rellenar los campos del formulario con el producto
+  for (const k in p) {
+    const el = form.querySelector(`[name="${k}"]`);
+    if (!el) continue;
+    el.value = (p[k] ?? '').toString();
   }
 });
 
