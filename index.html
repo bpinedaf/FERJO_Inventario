@@ -277,9 +277,26 @@
           <!-- Totales -->
           <div class="totales-box">
             <p>Total bruto: <strong>Q <span id="ventaTotalBruto">0.00</span></strong></p>
+          
+            <!-- DESCUENTO GLOBAL (%) -->
+            <p>Descuento (%):
+              <strong>
+                <input 
+                  name="descuento_porcentaje"
+                  id="ventaDescuentoPorcentaje"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  style="width:80px; padding:4px; margin-left:6px;"
+                  placeholder="0"
+                > %
+              </strong>
+            </p>
+          
             <p>Descuento total: <strong>Q <span id="ventaTotalDescuento">0.00</span></strong></p>
             <p>Total neto: <strong>Q <span id="ventaTotalNeto">0.00</span></strong></p>
           </div>
+
 
           <hr>
 
