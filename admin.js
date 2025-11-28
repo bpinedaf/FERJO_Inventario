@@ -431,6 +431,15 @@ const inputPagoInicialMonto = document.getElementById('pagoInicialMonto');
 const inputPagoInicialForma = document.getElementById('pagoInicialForma');
 const selectPlazoDias       = document.getElementById('plazoDias');
 
+// Recalcular totales cuando cambia % de descuento
+const descuentoEl = document.getElementById("ventaDescuentoPorcentaje");
+if (descuentoEl) {
+  descuentoEl.addEventListener("input", () => {
+    recomputeVentaTotals();
+  });
+}
+
+
 // --- Helpers de ventas ---
 function limpiarProductoActual(){
   inputVentaNombre.value    = '';
@@ -458,22 +467,56 @@ function renderVentaItems(){
   });
 }
 
-function recomputeVentaTotals(){
+function recomputeVentaTotals() {
   let totalBruto = 0;
-  let totalNeto  = 0;
+  let descuentoLineas = 0;
 
-  ventaItems.forEach(it=>{
-    const bruto = it.cantidad * it.precio_sugerido;
-    const neto  = it.cantidad * it.precio_unitario;
-    totalBruto += bruto;
-    totalNeto  += neto;
+  // Recorremos todas las líneas de la venta en la tabla
+  const rows = document.querySelectorAll("#ventaItemsBody tr");
+
+  rows.forEach(row => {
+    const precioSugerido = parseFloat(row.dataset.precioSugerido) || 0;
+    const precioUnitario = parseFloat(row.dataset.precioUnitario) || 0;
+    const cantidad = parseFloat(row.dataset.cantidad) || 0;
+
+    // Subtotal = precio final * cantidad
+    const subtotal = precioUnitario * cantidad;
+    row.querySelector(".subtotal").textContent = subtotal.toFixed(2);
+
+    // SUMA BRUTA = precio sugerido * cantidad
+    totalBruto += precioSugerido * cantidad;
+
+    // DESCUENTO DE LÍNEA (CORREGIDO)
+    // descuento = sugerido - final (pero nunca negativo)
+    const descuentoUnitario = Math.max(0, precioSugerido - precioUnitario);
+    descuentoLineas += descuentoUnitario * cantidad;
   });
 
-  const totalDesc = totalBruto - totalNeto;
+  // DESCUENTO GLOBAL (%)
+  const pctEl = document.getElementById("ventaDescuentoPorcentaje");
+  const pct = parseFloat(pctEl?.value) || 0;
+  const descuentoVenta = totalBruto * (pct / 100);
 
-  spanTotalBruto.textContent = totalBruto.toFixed(2);
-  spanTotalNeto.textContent  = totalNeto.toFixed(2);
-  spanTotalDesc.textContent  = totalDesc.toFixed(2);
+  // DESCUENTO TOTAL
+  const descuentoTotal = descuentoLineas + descuentoVenta;
+
+  // TOTAL NETO
+  const totalNeto = totalBruto - descuentoTotal;
+
+  // Refrescar UI
+  document.getElementById("ventaTotalBruto").textContent = totalBruto.toFixed(2);
+  document.getElementById("ventaTotalDescuento").textContent = descuentoTotal.toFixed(2);
+  document.getElementById("ventaTotalNeto").textContent = totalNeto.toFixed(2);
+
+  // Guardar en memoria global para mandar al backend
+  window.__VENTA_TOTALS__ = {
+    totalBruto,
+    descuentoLineas,
+    descuentoVenta,
+    descuentoTotal,
+    totalNeto,
+    descuentoPorcentaje: pct
+  };
 }
 
 function resetVenta(){
@@ -735,13 +778,30 @@ formVenta.addEventListener('submit', async (e)=>{
       precio_unitario: it.precio_unitario
     }))
   };
-
+  
+  // Pago inicial
   if (pagoInicialMonto > 0){
     payload.pago_inicial = {
       monto: pagoInicialMonto,
       forma_pago: pagoInicialForma || ''
     };
   }
+  
+  // ===============================
+  // AÑADIR DESCUENTOS Y TOTALES
+  // ===============================
+  if (window.__VENTA_TOTALS__) {
+    const t = window.__VENTA_TOTALS__;
+    payload.descuento_porcentaje = t.descuentoPorcentaje;
+    payload.descuento_venta_monto = t.descuentoVenta;
+    payload.total_bruto = t.totalBruto;
+    payload.total_descuento = t.descuentoTotal;
+    payload.total_neto = t.totalNeto;
+  
+    // Opcional (si quieres depurar en backend)
+    payload.descuento_lineas = t.descuentoLineas;
+  }
+
 
   appendResp(respVenta, { debug:'POST sale_register', payload_preview: {
     cliente_nombre,
