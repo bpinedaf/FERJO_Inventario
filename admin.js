@@ -467,62 +467,82 @@ function renderVentaItems(){
   });
 }
 
-function recomputeVentaTotals() {
-  let totalBruto = 0;
+function recomputeVentaTotals(){
+  let totalBruto      = 0;
+  let totalNetoLineas = 0;
   let descuentoLineas = 0;
 
-  // Recorremos todas las líneas de la venta en la tabla
-  const rows = document.querySelectorAll("#ventaItemsBody tr");
+  // 1) Totales a partir de los items en memoria
+  ventaItems.forEach(it => {
+    const cant           = Number(it.cantidad || 0);
+    const precioSug      = Number(it.precio_sugerido || 0);
+    const precioUnitario = Number(it.precio_unitario || 0);
 
-  rows.forEach(row => {
-    const precioSugerido = parseFloat(row.dataset.precioSugerido) || 0;
-    const precioUnitario = parseFloat(row.dataset.precioUnitario) || 0;
-    const cantidad = parseFloat(row.dataset.cantidad) || 0;
+    const bruto = cant * precioSug;
+    const neto  = cant * precioUnitario;
 
-    // Subtotal = precio final * cantidad
-    const subtotal = precioUnitario * cantidad;
-    row.querySelector(".subtotal").textContent = subtotal.toFixed(2);
+    totalBruto      += bruto;
+    totalNetoLineas += neto;
 
-    // SUMA BRUTA = precio sugerido * cantidad
-    totalBruto += precioSugerido * cantidad;
-
-    // DESCUENTO DE LÍNEA (CORREGIDO)
-    // descuento = sugerido - final (pero nunca negativo)
-    const descuentoUnitario = Math.max(0, precioSugerido - precioUnitario);
-    descuentoLineas += descuentoUnitario * cantidad;
+    // Descuento de línea = sugerido - final, nunca negativo
+    const diff          = precioSug - precioUnitario;
+    const descuentoUnit = Math.max(0, diff);
+    descuentoLineas    += descuentoUnit * cant;
   });
 
-  // DESCUENTO GLOBAL (%)
+  // 2) Descuento global (%)
   const pctEl = document.getElementById("ventaDescuentoPorcentaje");
-  const pct = parseFloat(pctEl?.value) || 0;
+  const pct   = pctEl ? (parseFloat(pctEl.value) || 0) : 0;
   const descuentoVenta = totalBruto * (pct / 100);
 
-  // DESCUENTO TOTAL
+  // 3) Descuento total y total neto final
   const descuentoTotal = descuentoLineas + descuentoVenta;
+  const totalNetoFinal = totalBruto - descuentoTotal;
 
-  // TOTAL NETO
-  const totalNeto = totalBruto - descuentoTotal;
+  // 4) Refrescar UI
+  const spanTotalBruto = document.getElementById("ventaTotalBruto");
+  const spanTotalDesc  = document.getElementById("ventaTotalDescuento");
+  const spanTotalNeto  = document.getElementById("ventaTotalNeto");
 
-  // Refrescar UI
-  document.getElementById("ventaTotalBruto").textContent = totalBruto.toFixed(2);
-  document.getElementById("ventaTotalDescuento").textContent = descuentoTotal.toFixed(2);
-  document.getElementById("ventaTotalNeto").textContent = totalNeto.toFixed(2);
+  if (spanTotalBruto) spanTotalBruto.textContent = totalBruto.toFixed(2);
+  if (spanTotalDesc)  spanTotalDesc.textContent  = descuentoTotal.toFixed(2);
+  if (spanTotalNeto)  spanTotalNeto.textContent  = totalNetoFinal.toFixed(2);
 
-  // Guardar en memoria global para mandar al backend
+  // 5) Guardar para el payload al backend
   window.__VENTA_TOTALS__ = {
     totalBruto,
     descuentoLineas,
     descuentoVenta,
     descuentoTotal,
-    totalNeto,
+    totalNeto: totalNetoFinal,
     descuentoPorcentaje: pct
   };
 }
 
+
 function resetVenta(){
   ventaItems = [];
   renderVentaItems();
+
+  // Limpiar descuento global
+  const inputDescuentoPct = document.getElementById('ventaDescuentoPorcentaje');
+  if (inputDescuentoPct) {
+    inputDescuentoPct.value = '';
+  }
+
+  // Limpiar totales en memoria
+  window.__VENTA_TOTALS__ = {
+    totalBruto: 0,
+    descuentoLineas: 0,
+    descuentoVenta: 0,
+    descuentoTotal: 0,
+    totalNeto: 0,
+    descuentoPorcentaje: 0
+  };
+
+  // Recalcular totales para dejar todo en Q 0.00 en la UI
   recomputeVentaTotals();
+
   respVenta.textContent = '';
   inputPagoInicialMonto.value = '';
   inputPagoInicialForma.value = '';
@@ -531,14 +551,6 @@ function resetVenta(){
   // No tocamos ventaDocUrlUltima para seguir viendo el último comprobante
 }
 
-// Ver comprobante de la última venta
-if (btnVentaVerComprobante) {
-  btnVentaVerComprobante.addEventListener('click', ()=>{
-    if (ventaDocUrlUltima) {
-      window.open(ventaDocUrlUltima, '_blank');
-    }
-  });
-}
 
 // --- Helpers de cliente (ventas) ---
 function rellenarCliente(cliente){
