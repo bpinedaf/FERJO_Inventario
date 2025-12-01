@@ -2014,9 +2014,12 @@ function renderUltimasVentas(lista) {
   }
 
   lista.forEach(v => {
+    const fechaHora =
+      (v.fecha ? `${v.fecha} ${v.hora || ""}` : (v.hora || ""));
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${v.hora || ""}</td>
+      <td>${fechaHora}</td>
       <td>${v.cliente || ""}</td>
       <td>${v.tipo_venta || ""}</td>
       <td style="text-align:right;">${formatQ(v.total_neto ?? v.total)}</td>
@@ -2024,6 +2027,7 @@ function renderUltimasVentas(lista) {
     tbody.appendChild(tr);
   });
 }
+
 
 let chartUltimos7 = null;
 
