@@ -2007,7 +2007,7 @@ async function cargarDashboard() {
 function renderUltimasVentas(lista) {
   const tbody = document.getElementById("dashLastSalesBody");
   tbody.innerHTML = "";
-
+  console.log("Ultimas ventas desde API:", lista);  // 👀
   if (!lista || !lista.length) {
     tbody.innerHTML = `<tr><td colspan="4">Sin ventas recientes</td></tr>`;
     return;
