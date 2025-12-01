@@ -803,6 +803,7 @@ formVenta.addEventListener('submit', async (e)=>{
   }
 
 
+
   appendResp(respVenta, { debug:'POST sale_register', payload_preview: {
     cliente_nombre,
     items: payload.items.length
