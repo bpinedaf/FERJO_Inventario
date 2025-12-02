@@ -1188,6 +1188,11 @@ const totalesDiaBox    = document.getElementById('totales-dia');
 const detalleVentasTbody = document.getElementById('detalle-ventas-body');
 const resumenWrapper   = document.getElementById('resumenVentasWrapper');
 
+// Formulario de anulación de ventas
+const formAnularVenta = document.getElementById('formAnularVenta');
+const respAnularVenta = document.getElementById('respAnularVenta');
+
+
 let chartVentas = null;
 let chartMargen = null;
 let ventasDelDia = [];
@@ -1392,6 +1397,75 @@ function seleccionarVentaPorIndex(idx) {
   // Render detalle
   renderDetalleVentaSeleccionada(venta);
 }
+
+// === ANULAR VENTA (sale_cancel) ===
+if (formAnularVenta && respAnularVenta) {
+  formAnularVenta.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    respAnularVenta.textContent = '';
+
+    const fd = new FormData(formAnularVenta);
+    const id_venta = (fd.get('id_venta') || '').toString().trim();
+    const motivo   = (fd.get('motivo')   || '').toString().trim();
+
+    if (!id_venta) {
+      respAnularVenta.textContent = 'Debes indicar el ID de la venta.';
+      return;
+    }
+
+    // Confirmación fuerte: esta acción debe ser consciente
+    const msgConfirm =
+      `¿Seguro que deseas ANULAR la venta ${id_venta}?\n` +
+      `Esto revertirá los movimientos de inventario asociados ` +
+      `y la venta ya no contará en los totales ni reportes.`;
+    if (!confirm(msgConfirm)) {
+      return;
+    }
+
+    // Llamamos al backend: POST JSON con token en query (?token=...)
+    const payload = {
+      id_venta,
+      motivo
+    };
+
+    appendResp(respAnularVenta, {
+      debug: 'POST sale_cancel',
+      payload_preview: payload
+    });
+
+    const out = await postJSONWithToken('sale_cancel', payload);
+    showResp(respAnularVenta, out);
+
+    if (out && out.ok) {
+      alert(`Venta ${id_venta} anulada correctamente.`);
+
+      // Limpiar formulario
+      formAnularVenta.reset();
+
+      // Opcional: refrescar dashboard
+      try {
+        cargarDashboard();
+      } catch (e) {
+        console.warn('No se pudo recargar dashboard tras anulación:', e);
+      }
+
+      // Opcional: si hay un resumen de ventas cargado, volver a disparar el submit
+      if (formResumenVentas) {
+        // Si el navegador soporta requestSubmit, la usamos
+        if (typeof formResumenVentas.requestSubmit === 'function') {
+          formResumenVentas.requestSubmit();
+        } else {
+          // Fallback: disparar evento submit manual
+          const evt = new Event('submit', { cancelable: true });
+          formResumenVentas.dispatchEvent(evt);
+        }
+      }
+    } else {
+      alert('Error al anular la venta: ' + (out && out.error ? out.error : 'desconocido'));
+    }
+  });
+}
+
 
 // Evento principal: submit del formulario de resumen
 if (formResumenVentas && respResumenVentas && detalleVentasTbody) {
