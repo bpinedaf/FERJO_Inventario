@@ -528,6 +528,41 @@
       <input type="date" id="fechaResumenVentas" name="fecha">
       <button type="submit">Ver resumen</button>
     </form>
+
+        <!-- =========================
+         ANULACIÓN DE VENTAS
+         ========================= -->
+    <h3>Anular una venta</h3>
+    <form id="formAnularVenta" style="margin-bottom:1.5rem;">
+      <div class="grid">
+        <label>ID de venta
+          <input 
+            type="text" 
+            id="anularIdVenta" 
+            name="id_venta" 
+            placeholder="Ej. VTA-1733098745632" 
+            required>
+        </label>
+        <label>Motivo de anulación
+          <input 
+            type="text" 
+            id="anularMotivo" 
+            name="motivo" 
+            placeholder="Devolución, error en la venta, etc.">
+        </label>
+      </div>
+      <div class="actions">
+        <button type="submit" class="btn-secondary">
+          Anular venta y revertir movimientos
+        </button>
+      </div>
+      <p class="help">
+        Esta acción marcará la venta como <strong>ANULADA</strong>, revertirá los movimientos de inventario
+        y ajustará los cobros asociados. No se eliminará el registro, solo quedará excluido de los reportes.
+      </p>
+      <pre id="respAnularVenta" class="resp"></pre>
+    </form>
+
   
     <section id="resumenVentasWrapper" style="margin-top:1rem;">
       <div id="totales-dia"></div>
