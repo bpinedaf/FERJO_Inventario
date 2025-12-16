@@ -364,6 +364,32 @@
         </div>
       
         <hr>
+
+        <h3 style="margin-top:14px;">Ventas pendientes del cliente</h3>
+
+        <div id="cxcVentasBox" style="display:none;">
+          <div style="margin:8px 0; font-weight:600;" id="cxcClienteTitulo"></div>
+        
+          <div class="table-wrapper">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>ID Venta</th>
+                  <th>Fecha</th>
+                  <th style="text-align:right;">Total neto</th>
+                  <th style="text-align:right;">Saldo pendiente</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="cxcVentasBody"></tbody>
+            </table>
+          </div>
+        
+          <small style="display:block; margin-top:6px; opacity:.75;">
+            Tip: haz clic en una venta para llenar automáticamente el ID y el monto.
+          </small>
+        </div>
+
       
         <h3>Aplicar pago a una venta</h3>
         <form id="formPago">
