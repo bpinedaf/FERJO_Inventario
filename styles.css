@@ -535,3 +535,8 @@ footer {
   color: #9ca3af;
   font-size: 0.85rem;
 }
+
+.row-selected {
+  outline: 2px solid rgba(0,0,0,.12);
+  background: rgba(0,0,0,.03);
+}
