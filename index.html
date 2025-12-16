@@ -421,6 +421,50 @@
           <div id="pagoVentaInfo" style="margin-top:10px;"></div>
           <pre id="respPago" class="resp"></pre>
         </form>
+
+        <hr style="margin:22px 0;">
+        
+        <h3>Reporte de pagos realizados</h3>
+        
+        <form id="formReportePagos" class="grid-2">
+          <div>
+            <label>Desde</label>
+            <input type="date" id="repPagosDesde" required>
+          </div>
+          <div>
+            <label>Hasta</label>
+            <input type="date" id="repPagosHasta" required>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <button type="submit">Ver reporte</button>
+          </div>
+        </form>
+        
+        <div id="repPagosWrapper" style="display:none; margin-top:12px;">
+          <div id="repPagosTotales" class="cards"></div>
+        
+          <div class="table-wrapper" style="margin-top:10px;">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>ID Venta</th>
+                  <th>Cliente</th>
+                  <th>Forma</th>
+                  <th style="text-align:right;">Monto</th>
+                  <th>Usuario</th>
+                  <th>Notas</th>
+                </tr>
+              </thead>
+              <tbody id="repPagosBody"></tbody>
+            </table>
+          </div>
+        
+          <pre id="repPagosDebug" style="margin-top:10px;"></pre>
+        </div>
+
+
+        
       </section>
 
       <!-- Panel: Compras -->
