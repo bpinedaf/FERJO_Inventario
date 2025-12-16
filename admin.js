@@ -2211,3 +2211,124 @@ window.activarTabInicial = function(roles) {
     setTimeout(cargarDashboard, 300);
   }
 };
+
+// ===================================================
+//                  PAGOS / CXC
+// ===================================================
+const btnCxcRefresh = document.getElementById('btnCxcRefresh');
+const cxcBody       = document.getElementById('cxcBody');
+
+const formPago      = document.getElementById('formPago');
+const respPago      = document.getElementById('respPago');
+const btnPagoBuscarVenta = document.getElementById('btnPagoBuscarVenta');
+const pagoVentaInfo = document.getElementById('pagoVentaInfo');
+
+const pagoIdVenta = document.getElementById('pagoIdVenta');
+const pagoMonto   = document.getElementById('pagoMonto');
+const pagoForma   = document.getElementById('pagoForma');
+const pagoNotas   = document.getElementById('pagoNotas');
+
+let ventaSeleccionadaPago = null;
+
+async function cargarCxc() {
+  if (!cxcBody) return;
+  cxcBody.innerHTML = `<tr><td colspan="4">Cargando...</td></tr>`;
+
+  const out = await getWithToken('cxc_list', {});
+  if (!out || !out.ok) {
+    cxcBody.innerHTML = `<tr><td colspan="4">Error: ${(out && out.error) ? out.error : 'desconocido'}</td></tr>`;
+    return;
+  }
+
+  const lista = out.clientes || [];
+  if (!lista.length) {
+    cxcBody.innerHTML = `<tr><td colspan="4">No hay saldos pendientes 🎉</td></tr>`;
+    return;
+  }
+
+  cxcBody.innerHTML = '';
+  lista.forEach(c => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${c.nombre || ''}</td>
+      <td>${c.id_cliente || ''}</td>
+      <td style="text-align:right;">${formatQ(c.saldo_total || 0)}</td>
+      <td style="text-align:right;">${(c.ventas || []).length}</td>
+    `;
+    cxcBody.appendChild(tr);
+  });
+}
+
+async function buscarVentaParaPago() {
+  if (!respPago || !pagoVentaInfo) return;
+  respPago.textContent = '';
+  pagoVentaInfo.textContent = '';
+
+  const id = (pagoIdVenta.value || '').trim();
+  if (!id) { alert('Ingresa el ID de la venta'); return; }
+
+  const out = await getWithToken('sale_fetch', { id_venta: id });
+  if (!out || !out.ok) {
+    showResp(respPago, out || { ok:false, error:'Sin respuesta' });
+    ventaSeleccionadaPago = null;
+    return;
+  }
+
+  ventaSeleccionadaPago = out.venta;
+
+  const v = out.venta || {};
+  pagoVentaInfo.innerHTML = `
+    <div style="padding:10px; border:1px solid #ddd; border-radius:10px; background:#fafafa;">
+      <div><strong>Cliente:</strong> ${v.cliente || ''} (${v.id_cliente || ''})</div>
+      <div><strong>Total neto:</strong> ${formatQ(v.total_neto || 0)}</div>
+      <div><strong>Saldo pendiente:</strong> ${formatQ(v.saldo_pendiente || 0)}</div>
+      <div><strong>Estado:</strong> ${v.estado || ''}</div>
+    </div>
+  `;
+
+  // sugerir monto = saldo pendiente
+  if (!pagoMonto.value) {
+    pagoMonto.value = Number(v.saldo_pendiente || 0).toFixed(2);
+  }
+}
+
+if (btnCxcRefresh) btnCxcRefresh.addEventListener('click', cargarCxc);
+if (btnPagoBuscarVenta) btnPagoBuscarVenta.addEventListener('click', buscarVentaParaPago);
+
+if (formPago) {
+  formPago.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    respPago.textContent = '';
+
+    const id_venta = (pagoIdVenta.value || '').trim();
+    const monto = Number(pagoMonto.value || 0);
+    const forma_pago = (pagoForma.value || '').trim();
+    const notas = (pagoNotas.value || '').trim();
+
+    if (!id_venta) { alert('ID venta es obligatorio'); return; }
+    if (!monto || monto <= 0) { alert('Monto debe ser mayor a 0'); return; }
+
+    const payload = { id_venta, monto, forma_pago, notas };
+
+    appendResp(respPago, { debug:'POST payment_register', payload });
+
+    const out = await postJSONWithToken('payment_register', payload);
+    showResp(respPago, out);
+
+    if (out && out.ok) {
+      alert(`Pago registrado.\nSaldo nuevo: Q ${Number(out.saldo_nuevo||0).toFixed(2)}\nEstado: ${out.estado}`);
+
+      // refrescar venta + cxc
+      await buscarVentaParaPago();
+      await cargarCxc();
+    }
+  });
+}
+
+// Cargar CXC cuando se abra el tab Pagos
+const tabPagos = document.querySelector('[data-tab="pagos"]');
+if (tabPagos) {
+  tabPagos.addEventListener('click', () => {
+    setTimeout(cargarCxc, 200);
+  });
+}
