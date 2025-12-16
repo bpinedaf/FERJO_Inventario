@@ -70,6 +70,7 @@
         <button class="tab" data-tab="compras" data-roles="admin,inventario">Compras</button>
         <button class="tab" data-tab="movimientos" data-roles="admin,inventario">Movimientos</button>
         <button class="tab" data-tab="reportes" data-roles="admin,reportes">Reportes</button>
+        <button class="tab" data-tab="pagos" data-roles="admin,ventas,inventario">Pagos</button>
 
       </nav>
       
@@ -338,6 +339,61 @@
             venta, detalle, movimientos e incluso el pago inicial.
           </p>
           <pre id="respVenta" class="resp"></pre>
+        </form>
+      </section>
+
+      <section id="pagos" class="panel" data-roles="admin,ventas,inventario">
+        <h2>Pagos de clientes (Cuentas por cobrar)</h2>
+      
+        <div class="actions" style="margin-bottom:12px;">
+          <button type="button" id="btnCxcRefresh">Refrescar deudores</button>
+        </div>
+      
+        <div class="table-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>ID Cliente</th>
+                <th style="text-align:right;">Saldo total</th>
+                <th>#Ventas</th>
+              </tr>
+            </thead>
+            <tbody id="cxcBody"></tbody>
+          </table>
+        </div>
+      
+        <hr>
+      
+        <h3>Aplicar pago a una venta</h3>
+        <form id="formPago">
+          <div class="grid">
+            <label>ID venta*
+              <input name="id_venta" id="pagoIdVenta" placeholder="VTA-..." required>
+            </label>
+            <label>Monto*
+              <input name="monto" id="pagoMonto" type="number" step="0.01" placeholder="Q 0.00" required>
+            </label>
+            <label>Forma de pago
+              <select name="forma_pago" id="pagoForma">
+                <option value="">(auto)</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="transferencia">Transferencia</option>
+              </select>
+            </label>
+            <label>Notas
+              <input name="notas" id="pagoNotas" placeholder="Opcional">
+            </label>
+          </div>
+      
+          <div class="actions">
+            <button type="button" id="btnPagoBuscarVenta" class="btn-secondary">Buscar venta</button>
+            <button type="submit">Registrar pago</button>
+          </div>
+      
+          <div id="pagoVentaInfo" style="margin-top:10px;"></div>
+          <pre id="respPago" class="resp"></pre>
         </form>
       </section>
 
