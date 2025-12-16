@@ -2228,8 +2228,14 @@ const pagoMonto   = document.getElementById('pagoMonto');
 const pagoForma   = document.getElementById('pagoForma');
 const pagoNotas   = document.getElementById('pagoNotas');
 
-let ventaSeleccionadaPago = null;
+const cxcVentasBox     = document.getElementById('cxcVentasBox');
+const cxcClienteTitulo = document.getElementById('cxcClienteTitulo');
+const cxcVentasBody    = document.getElementById('cxcVentasBody');
 
+let cxcClientesCache = [];   // guardamos lo que devuelve cxc_list
+let cxcClienteSel = null;    // cliente seleccionado
+
+let ventaSeleccionadaPago = null;
 async function cargarCxc() {
   if (!cxcBody) return;
   cxcBody.innerHTML = `<tr><td colspan="4">Cargando...</td></tr>`;
@@ -2241,21 +2247,104 @@ async function cargarCxc() {
   }
 
   const lista = out.clientes || [];
+  cxcClientesCache = lista; // ✅ cache
+
+  // reset panel de ventas del cliente
+  if (cxcVentasBox) cxcVentasBox.style.display = 'none';
+  if (cxcVentasBody) cxcVentasBody.innerHTML = '';
+  if (cxcClienteTitulo) cxcClienteTitulo.textContent = '';
+
   if (!lista.length) {
     cxcBody.innerHTML = `<tr><td colspan="4">No hay saldos pendientes 🎉</td></tr>`;
     return;
   }
 
   cxcBody.innerHTML = '';
-  lista.forEach(c => {
+  lista.forEach((c, idx) => {
     const tr = document.createElement('tr');
+    tr.dataset.index = String(idx);
+    tr.style.cursor = 'pointer'; // 👈 indica que se puede clickear
+
     tr.innerHTML = `
       <td>${c.nombre || ''}</td>
       <td>${c.id_cliente || ''}</td>
       <td style="text-align:right;">${formatQ(c.saldo_total || 0)}</td>
       <td style="text-align:right;">${(c.ventas || []).length}</td>
     `;
+
     cxcBody.appendChild(tr);
+  });
+}
+
+
+function renderVentasPendientesCliente(cliente){
+  if (!cxcVentasBox || !cxcVentasBody || !cxcClienteTitulo) return;
+
+  cxcClienteSel = cliente || null;
+
+  const nombre = (cliente && cliente.nombre) ? cliente.nombre : '(Sin nombre)';
+  const idc    = (cliente && cliente.id_cliente) ? cliente.id_cliente : '';
+
+  cxcClienteTitulo.textContent = `Cliente: ${nombre}${idc ? ' — ' + idc : ''}`;
+
+  const ventas = (cliente && Array.isArray(cliente.ventas)) ? cliente.ventas : [];
+  const pendientes = ventas.filter(v => Number(v.saldo_pendiente || 0) > 0);
+
+  cxcVentasBody.innerHTML = '';
+
+  if (!pendientes.length) {
+    cxcVentasBody.innerHTML = `<tr><td colspan="5" style="font-style:italic;">Este cliente no tiene ventas pendientes.</td></tr>`;
+    cxcVentasBox.style.display = 'block';
+    return;
+  }
+
+  pendientes.forEach(v => {
+    const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.dataset.idVenta = v.id_venta || '';
+
+    // Fecha puede venir como Date o string: lo mostramos simple
+    const fechaTxt = (v.fecha instanceof Date)
+      ? v.fecha.toISOString().slice(0,10)
+      : (v.fecha ? String(v.fecha).slice(0, 19) : '');
+
+    tr.innerHTML = `
+      <td><strong>${v.id_venta || ''}</strong></td>
+      <td>${fechaTxt}</td>
+      <td style="text-align:right;">${formatQ(v.total_neto || 0)}</td>
+      <td style="text-align:right;"><strong>${formatQ(v.saldo_pendiente || 0)}</strong></td>
+      <td>${v.estado || ''}</td>
+    `;
+
+    // Click en la venta => llena el form de pago
+    tr.addEventListener('click', () => {
+      if (pagoIdVenta) pagoIdVenta.value = v.id_venta || '';
+      if (pagoMonto)   pagoMonto.value   = Number(v.saldo_pendiente || 0).toFixed(2);
+
+      // opcional: auto-buscar venta para mostrar caja info
+      buscarVentaParaPago();
+    });
+
+    cxcVentasBody.appendChild(tr);
+  });
+
+  cxcVentasBox.style.display = 'block';
+}
+
+// Delegación: click en filas de clientes
+if (cxcBody){
+  cxcBody.addEventListener('click', (ev) => {
+    const tr = ev.target.closest('tr[data-index]');
+    if (!tr) return;
+
+    const idx = Number(tr.dataset.index);
+    if (Number.isNaN(idx) || !cxcClientesCache[idx]) return;
+
+    // resaltado simple
+    cxcBody.querySelectorAll('tr').forEach(x => x.classList.remove('row-selected'));
+    tr.classList.add('row-selected');
+
+    renderVentasPendientesCliente(cxcClientesCache[idx]);
   });
 }
 
