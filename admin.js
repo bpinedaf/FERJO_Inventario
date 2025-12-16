@@ -2232,10 +2232,100 @@ const cxcVentasBox     = document.getElementById('cxcVentasBox');
 const cxcClienteTitulo = document.getElementById('cxcClienteTitulo');
 const cxcVentasBody    = document.getElementById('cxcVentasBody');
 
+const formReportePagos = document.getElementById('formReportePagos');
+const repPagosDesde    = document.getElementById('repPagosDesde');
+const repPagosHasta    = document.getElementById('repPagosHasta');
+const repPagosWrapper  = document.getElementById('repPagosWrapper');
+const repPagosTotales  = document.getElementById('repPagosTotales');
+const repPagosBody     = document.getElementById('repPagosBody');
+const repPagosDebug    = document.getElementById('repPagosDebug');
+
+
 let cxcClientesCache = [];   // guardamos lo que devuelve cxc_list
 let cxcClienteSel = null;    // cliente seleccionado
 
 let ventaSeleccionadaPago = null;
+
+function renderReportePagos(data) {
+  if (!repPagosWrapper) return;
+  repPagosWrapper.style.display = 'block';
+
+  // Totales
+  if (repPagosTotales) {
+    const t = data.totales || {};
+    repPagosTotales.innerHTML = `
+      <div class="card">
+        <div class="card-label">Pagos</div>
+        <div class="card-value">${formatEntero(t.pagos || 0)}</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Monto total</div>
+        <div class="card-value">${formatQ(t.monto_total || 0)}</div>
+      </div>
+    `;
+  }
+
+  // Tabla
+  if (repPagosBody) {
+    repPagosBody.innerHTML = '';
+    const pagos = data.pagos || [];
+
+    pagos.forEach(p => {
+      const f = p.fecha ? new Date(p.fecha) : null;
+      const fechaTxt = f && !isNaN(f.getTime())
+        ? f.toISOString().replace('T',' ').slice(0,19)
+        : (p.fecha || '');
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${fechaTxt}</td>
+        <td>${p.id_venta || ''}</td>
+        <td>${p.cliente || p.id_cliente || ''}</td>
+        <td>${p.forma_pago || ''}</td>
+        <td style="text-align:right;">${formatQ(p.monto || 0)}</td>
+        <td>${p.usuario || ''}</td>
+        <td>${p.notas || ''}</td>
+      `;
+      repPagosBody.appendChild(tr);
+    });
+
+    if (!pagos.length) {
+      repPagosBody.innerHTML = `<tr><td colspan="7"><i>No hay pagos en este rango.</i></td></tr>`;
+    }
+  }
+
+  if (repPagosDebug) repPagosDebug.textContent = JSON.stringify(data, null, 2);
+}
+
+if (formReportePagos && repPagosDesde && repPagosHasta) {
+  const hoy = new Date();
+  const hastaISO = hoy.toISOString().slice(0,10);
+  const dDesde = new Date(hoy);
+  dDesde.setDate(dDesde.getDate() - 7);
+  const desdeISO = dDesde.toISOString().slice(0,10);
+
+  if (!repPagosDesde.value) repPagosDesde.value = desdeISO;
+  if (!repPagosHasta.value) repPagosHasta.value = hastaISO;
+
+  formReportePagos.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+
+    const desde = repPagosDesde.value || '';
+    const hasta = repPagosHasta.value || '';
+    if (!desde || !hasta) return alert('Indica Desde y Hasta.');
+    if (desde > hasta)    return alert('"Desde" no puede ser mayor que "Hasta".');
+
+    const data = await getWithToken('payments_report', { desde, hasta });
+    if (!data || !data.ok) {
+      alert('Error en el reporte de pagos.');
+      if (repPagosDebug) repPagosDebug.textContent = JSON.stringify(data, null, 2);
+      return;
+    }
+    renderReportePagos(data);
+  });
+}
+
+
 async function cargarCxc() {
   if (!cxcBody) return;
   cxcBody.innerHTML = `<tr><td colspan="4">Cargando...</td></tr>`;
