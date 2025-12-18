@@ -1251,6 +1251,54 @@ if (formCajaDiaria) {
   });
 }
 
+// ==============================
+// CIERRE DE CAJA (cash_close_register)
+// ==============================
+const formCierreCaja      = document.getElementById('formCierreCaja');
+const fechaCierreCaja     = document.getElementById('fechaCierreCaja');
+const efectivoContadoCaja = document.getElementById('efectivoContadoCaja');
+const notasCierreCaja     = document.getElementById('notasCierreCaja');
+const respCierreCaja      = document.getElementById('respCierreCaja');
+
+function todayISO__() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+if (fechaCierreCaja && !fechaCierreCaja.value) fechaCierreCaja.value = todayISO__();
+
+if (formCierreCaja) {
+  formCierreCaja.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const fecha = (fechaCierreCaja?.value || '').trim();
+    const efectivo = Number(efectivoContadoCaja?.value || 0) || 0;
+    const notas = (notasCierreCaja?.value || '').trim();
+
+    if (!fecha) return alert('Selecciona una fecha.');
+    if (!isFinite(efectivo)) return alert('Efectivo contado inválido.');
+
+    respCierreCaja.style.display = 'block';
+    respCierreCaja.textContent = 'Guardando cierre...';
+
+    try {
+      const out = await postJSONWithToken('cash_close_register', {
+        fecha,
+        efectivo_contado: efectivo,
+        notas
+      });
+
+      showResp(respCierreCaja, out);
+
+      if (out && out.ok) {
+        alert(`Cierre guardado ✅\nDiferencia: Q ${(Number(out.diferencia||0)).toFixed(2)}`);
+      }
+    } catch (err) {
+      showResp(respCierreCaja, { ok:false, error: String(err) });
+    }
+  });
+}
+
 
 // ===================================================
 //        RESUMEN DE VENTAS DEL DÍA (sales_summary)
