@@ -1176,6 +1176,80 @@ if (formCompra){
   });
 }
 
+// ===================================================
+//        REPORTE DIARIO DE CAJA (daily_cash_report)
+// ===================================================
+const formCajaDiaria        = document.getElementById('formCajaDiaria');
+const fechaCajaDiaria       = document.getElementById('fechaCajaDiaria');
+const cajaDiariaCards       = document.getElementById('cajaDiariaCards');
+const kpiCajaEsperada       = document.getElementById('kpiCajaEsperada');
+const kpiCajaVentasContado  = document.getElementById('kpiCajaVentasContado');
+const kpiCajaPagCredito     = document.getElementById('kpiCajaPagCredito');
+const kpiCajaCobAdicional   = document.getElementById('kpiCajaCobAdicional');
+const kpiCajaAnulaciones    = document.getElementById('kpiCajaAnulaciones');
+const cajaDiariaDetalle     = document.getElementById('cajaDiariaDetalle');
+const respCajaDiaria        = document.getElementById('respCajaDiaria');
+
+function todayISO_() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function Q_(n) {
+  return `Q ${(Number(n || 0) || 0).toFixed(2)}`;
+}
+
+if (fechaCajaDiaria && !fechaCajaDiaria.value) {
+  fechaCajaDiaria.value = todayISO_();
+}
+
+if (formCajaDiaria) {
+  formCajaDiaria.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (respCajaDiaria) respCajaDiaria.textContent = '';
+
+    const fd = new FormData(formCajaDiaria);
+    const fecha = (fd.get('fecha') || '').trim();
+    if (!fecha) {
+      alert('Selecciona una fecha.');
+      return;
+    }
+
+    try {
+      const out = await getWithToken('daily_cash_report', { fecha });
+
+      if (!out || !out.ok) {
+        if (respCajaDiaria) showResp(respCajaDiaria, out || { error: 'Sin respuesta' });
+        cajaDiariaCards && (cajaDiariaCards.style.display = 'none');
+        cajaDiariaDetalle && (cajaDiariaDetalle.style.display = 'none');
+        return;
+      }
+
+      const comp = out.componentes || {};
+      kpiCajaEsperada      && (kpiCajaEsperada.textContent      = Q_(out.efectivo_esperado));
+      kpiCajaVentasContado && (kpiCajaVentasContado.textContent = Q_(comp.ventas_contado_total));
+      kpiCajaPagCredito    && (kpiCajaPagCredito.textContent    = Q_(comp.pagos_iniciales_credito_mixto));
+      kpiCajaCobAdicional  && (kpiCajaCobAdicional.textContent  = Q_(comp.cobros_adicionales));
+      kpiCajaAnulaciones   && (kpiCajaAnulaciones.textContent   = Q_(comp.reintegros_anulaciones_hoy));
+
+      cajaDiariaCards && (cajaDiariaCards.style.display = 'flex');
+
+      if (respCajaDiaria) {
+        showResp(respCajaDiaria, out);
+      }
+      cajaDiariaDetalle && (cajaDiariaDetalle.style.display = 'block');
+
+    } catch (err) {
+      if (respCajaDiaria) showResp(respCajaDiaria, { error: String(err) });
+      cajaDiariaCards && (cajaDiariaCards.style.display = 'none');
+      cajaDiariaDetalle && (cajaDiariaDetalle.style.display = 'block');
+    }
+  });
+}
 
 
 // ===================================================
