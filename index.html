@@ -644,7 +644,57 @@
     <section id="reportes" class="panel" data-roles="admin,reportes">
     <h2>Reportes</h2>
     <p class="panel-subtitle">Reportes avanzados de ventas y compras.</p>
-  
+
+
+    <!-- =========================
+     REPORTE DIARIO DE CAJA
+     ========================= -->
+    <h3>Reporte diario de caja</h3>
+    <form id="formCajaDiaria" class="reportes-form">
+      <div class="grid">
+        <label>Fecha
+          <input type="date" id="fechaCajaDiaria" name="fecha">
+        </label>
+      </div>
+      <div class="actions">
+        <button type="submit">Calcular caja</button>
+      </div>
+    </form>
+    
+    <div id="cajaDiariaCards" class="dash-cards" style="margin-top:12px; display:none;">
+      <div class="dash-card">
+        <h3>Efectivo esperado</h3>
+        <p id="kpiCajaEsperada">—</p>
+      </div>
+    
+      <div class="dash-card">
+        <h3>Ventas contado</h3>
+        <p id="kpiCajaVentasContado">—</p>
+      </div>
+    
+      <div class="dash-card">
+        <h3>PAG- (crédito/mixto)</h3>
+        <p id="kpiCajaPagCredito">—</p>
+      </div>
+    
+      <div class="dash-card">
+        <h3>COB- (adicional)</h3>
+        <p id="kpiCajaCobAdicional">—</p>
+      </div>
+    
+      <div class="dash-card">
+        <h3>Anulaciones hoy (reintegro)</h3>
+        <p id="kpiCajaAnulaciones">—</p>
+      </div>
+    </div>
+    
+    <details id="cajaDiariaDetalle" style="margin-top:12px; display:none;">
+      <summary style="cursor:pointer; font-weight:600;">Ver detalle</summary>
+      <pre id="respCajaDiaria" class="resp"></pre>
+    </details>
+    
+    <hr>
+
     <!-- =========================
         RESUMEN DE VENTAS DEL DÍA
         ========================= -->
