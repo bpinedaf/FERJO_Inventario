@@ -695,6 +695,36 @@
     
     <hr>
 
+      <!-- =========================
+     CIERRE DE CAJA
+     ========================= -->
+
+    <h3 style="margin-top:18px;">Cierre de caja</h3>
+    
+    <form id="formCierreCaja" class="reportes-form">
+      <div class="grid">
+        <label>Fecha
+          <input type="date" id="fechaCierreCaja" name="fecha">
+        </label>
+    
+        <label>Efectivo contado en caja (real)
+          <input type="number" step="0.01" id="efectivoContadoCaja" name="efectivo_contado" placeholder="0.00">
+        </label>
+    
+        <label>Notas (opcional)
+          <input type="text" id="notasCierreCaja" name="notas" placeholder="Ej: cambio, depósito pendiente...">
+        </label>
+      </div>
+    
+      <div class="actions">
+        <button type="submit">Guardar cierre</button>
+      </div>
+    </form>
+    
+    <pre id="respCierreCaja" class="resp" style="display:none;"></pre>
+    
+    <hr>
+
     <!-- =========================
         RESUMEN DE VENTAS DEL DÍA
         ========================= -->
