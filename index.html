@@ -71,6 +71,8 @@
         <button class="tab" data-tab="movimientos" data-roles="admin,inventario">Movimientos</button>
         <button class="tab" data-tab="reportes" data-roles="admin,reportes">Reportes</button>
         <button class="tab" data-tab="pagos" data-roles="admin,ventas,inventario">Pagos</button>
+        <button class="tab" data-tab="inventario" data-roles="admin,inventario,reportes">Inventario</button>
+
 
       </nav>
       
@@ -640,7 +642,50 @@
         <pre id="respRecibo" class="resp"></pre>
       </form>
     </section>
-      
+
+
+
+    <!-- INVENTARIO -->
+    <section id="inventario" class="panel" data-roles="admin,inventario,reportes">
+      <div class="panel-header">
+        <div>
+          <h2>Inventario</h2>
+          <p class="panel-subtitle">Vista rápida de existencias y costo (según permisos).</p>
+        </div>
+      </div>
+    
+      <div class="card">
+        <div class="row" style="gap:10px; align-items:end;">
+          <div class="field" style="flex:1; min-width:220px;">
+            <label>Buscar (ID o nombre)</label>
+            <input type="text" id="invSearch" placeholder="Ej. 3 o dino..." />
+          </div>
+    
+          <button type="button" id="btnInventarioVer">Cargar inventario</button>
+          <button type="button" id="btnInventarioRefrescar" class="btn-secondary" style="display:none;">
+            Refrescar
+          </button>
+        </div>
+    
+        <div class="table-wrap" style="margin-top:12px;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th style="text-align:right;">Cantidad</th>
+                <th style="text-align:right;">Costo</th>
+              </tr>
+            </thead>
+            <tbody id="inventarioBody"></tbody>
+          </table>
+        </div>
+    
+        <small id="invMeta" style="display:block; margin-top:8px; opacity:.75;"></small>
+        <pre id="respInventario" class="resp" style="display:none;"></pre>
+      </div>
+    </section>
+
     <section id="reportes" class="panel" data-roles="admin,reportes">
     <h2>Reportes</h2>
     <p class="panel-subtitle">Reportes avanzados de ventas y compras.</p>
