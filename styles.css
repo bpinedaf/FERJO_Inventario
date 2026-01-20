@@ -540,3 +540,62 @@ footer {
   outline: 2px solid rgba(0,0,0,.12);
   background: rgba(0,0,0,.03);
 }
+
+/* ===== Inventario: tabla más profesional ===== */
+.inv-table-wrap{
+  max-height: 62vh;           /* evita que sea eterna */
+  overflow: auto;
+  border: 1px solid #e5e7eb;  /* línea suave */
+  border-radius: 12px;
+  background: #fff;
+}
+
+.inv-table{
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+
+.inv-table thead th{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8fafc;        /* header suave */
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 700;
+}
+
+.inv-table tbody td{
+  padding: 9px 12px;
+  border-bottom: 1px solid #f1f5f9;  /* líneas entre filas */
+  vertical-align: top;
+}
+
+.inv-table tbody tr:nth-child(even){
+  background: #fbfdff; /* zebra súper sutil */
+}
+
+.inv-table tbody tr:hover{
+  background: #eef6ff; /* resalta al pasar mouse */
+}
+
+.inv-table .col-id{
+  width: 80px;
+  white-space: nowrap;
+}
+
+.inv-table .col-num{
+  width: 140px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Opcional: mejor lectura en móvil */
+@media (max-width: 720px){
+  .inv-table-wrap{ max-height: 60vh; }
+  .inv-table{ font-size: 13px; }
+  .inv-table .col-num{ width: 110px; }
+}
