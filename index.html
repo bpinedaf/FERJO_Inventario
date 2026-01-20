@@ -72,6 +72,7 @@
         <button class="tab" data-tab="reportes" data-roles="admin,reportes">Reportes</button>
         <button class="tab" data-tab="pagos" data-roles="admin,ventas,inventario">Pagos</button>
         <button class="tab" data-tab="inventario" data-roles="admin,inventario,reportes">Inventario</button>
+        <button class="tab" data-tab="caja" data-roles="admin,ventas,inventario">Cierre Caja</button>
 
 
       </nav>
@@ -687,6 +688,52 @@
       </div>
     </section>
 
+    <section id="caja" class="panel" data-roles="admin,ventas,inventario">
+      <div class="panel-header">
+        <div>
+          <h2>Caja</h2>
+          <p class="panel-subtitle">Cierre diario de caja (uso operativo).</p>
+        </div>
+      </div>
+    
+      <!-- ✅ Aquí va el bloque actual de "Cierre de caja" -->
+      <div id="boxCierreCaja">
+       <!-- =========================
+     CIERRE DE CAJA
+     ========================= -->
+
+        <h3 style="margin-top:18px;">Cierre de caja</h3>
+        
+        <form id="formCierreCaja" class="reportes-form">
+          <div class="grid">
+            <label>Fecha
+              <input type="date" id="fechaCierreCaja" name="fecha">
+            </label>
+        
+            <label>Efectivo contado en caja (real)
+              <input type="number" step="0.01" id="efectivoContadoCaja" name="efectivo_contado" placeholder="0.00">
+            </label>
+        
+            <label>Notas (opcional)
+              <input type="text" id="notasCierreCaja" name="notas" placeholder="Ej: cambio, depósito pendiente...">
+            </label>
+          </div>
+        
+          <div class="actions">
+            <button type="submit">Guardar cierre</button>
+          </div>
+        </form>
+        
+        <pre id="respCierreCaja" class="resp" style="display:none;"></pre>
+        
+        <hr>
+      </div>
+    
+      <!-- (Opcional) también puede ir el "Reporte diario de caja" si lo quieres para vendedoras,
+           pero SOLO mostrando efectivo esperado sin desglose sensible -->
+    </section>
+
+
     <section id="reportes" class="panel" data-roles="admin,reportes">
     <h2>Reportes</h2>
     <p class="panel-subtitle">Reportes avanzados de ventas y compras.</p>
@@ -741,35 +788,7 @@
     
     <hr>
 
-      <!-- =========================
-     CIERRE DE CAJA
-     ========================= -->
-
-    <h3 style="margin-top:18px;">Cierre de caja</h3>
-    
-    <form id="formCierreCaja" class="reportes-form">
-      <div class="grid">
-        <label>Fecha
-          <input type="date" id="fechaCierreCaja" name="fecha">
-        </label>
-    
-        <label>Efectivo contado en caja (real)
-          <input type="number" step="0.01" id="efectivoContadoCaja" name="efectivo_contado" placeholder="0.00">
-        </label>
-    
-        <label>Notas (opcional)
-          <input type="text" id="notasCierreCaja" name="notas" placeholder="Ej: cambio, depósito pendiente...">
-        </label>
-      </div>
-    
-      <div class="actions">
-        <button type="submit">Guardar cierre</button>
-      </div>
-    </form>
-    
-    <pre id="respCierreCaja" class="resp" style="display:none;"></pre>
-    
-    <hr>
+      
 
     <!-- =========================
         RESUMEN DE VENTAS DEL DÍA
