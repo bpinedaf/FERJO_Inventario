@@ -2633,3 +2633,86 @@ if (tabPagos) {
     setTimeout(cargarCxc, 200);
   });
 }
+
+// ===================================================
+//           INVENTARIO (Vista rápida)
+// ===================================================
+let INV_CACHE = [];
+
+function renderInventario(rows){
+  const tb = document.getElementById('inventarioBody');
+  const meta = document.getElementById('invMeta');
+  if (!tb) return;
+
+  tb.innerHTML = '';
+  for (const it of rows){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${it.id_del_articulo || ''}</td>
+      <td>${it.nombre || ''}</td>
+      <td style="text-align:right;">${formatEntero(it.cantidad)}</td>
+      <td style="text-align:right;">${formatQ(it.costo)}</td>
+    `;
+    tb.appendChild(tr);
+  }
+
+  if (meta) meta.textContent = `Mostrando ${rows.length} producto(s).`;
+}
+
+async function loadInventario(){
+  const respPre = document.getElementById('respInventario');
+  const btnRef = document.getElementById('btnInventarioRefrescar');
+
+  if (respPre) { respPre.style.display='none'; respPre.textContent=''; }
+
+  const data = await getWithToken('inventory_list');
+  if (!data || !data.ok){
+    if (respPre){
+      respPre.style.display='';
+      respPre.textContent = JSON.stringify(data, null, 2);
+    }
+    throw new Error((data && data.error) ? data.error : 'Error cargando inventario');
+  }
+
+  INV_CACHE = data.rows || [];
+  renderInventario(INV_CACHE);
+
+  if (btnRef) btnRef.style.display = '';
+}
+
+function wireInventarioUI(){
+  const btn = document.getElementById('btnInventarioVer');
+  const btnRef = document.getElementById('btnInventarioRefrescar');
+  const search = document.getElementById('invSearch');
+
+  if (btn){
+    btn.addEventListener('click', async ()=>{
+      try { await loadInventario(); }
+      catch(err){ alert('No se pudo cargar inventario: ' + (err.message || err)); }
+    });
+  }
+
+  if (btnRef){
+    btnRef.addEventListener('click', async ()=>{
+      try { await loadInventario(); }
+      catch(err){ alert('No se pudo refrescar inventario: ' + (err.message || err)); }
+    });
+  }
+
+  if (search){
+    search.addEventListener('input', ()=>{
+      const q = (search.value || '').trim().toLowerCase();
+      if (!q) return renderInventario(INV_CACHE);
+
+      const filtered = INV_CACHE.filter(it=>{
+        const id = String(it.id_del_articulo||'').toLowerCase();
+        const nm = String(it.nombre||'').toLowerCase();
+        return id.includes(q) || nm.includes(q);
+      });
+      renderInventario(filtered);
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', wireInventarioUI);
+
