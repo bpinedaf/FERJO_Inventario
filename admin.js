@@ -468,9 +468,10 @@ function renderVentaItems(){
 }
 
 function recomputeVentaTotals(){
-  let totalBruto      = 0;
-  let totalNetoLineas = 0;
-  let descuentoLineas = 0;
+  let totalBrutoReal   = 0; // lo que realmente se está cobrando antes del % global
+  let totalSugerido    = 0; // referencia (precio sugerido * cant)
+  let descuentoLineas  = 0; // solo cuando precio real < sugerido
+  let recargoLineas    = 0; // opcional: cuando precio real > sugerido (NO es descuento)
 
   // 1) Totales a partir de los items en memoria
   ventaItems.forEach(it => {
@@ -478,46 +479,53 @@ function recomputeVentaTotals(){
     const precioSug      = Number(it.precio_sugerido || 0);
     const precioUnitario = Number(it.precio_unitario || 0);
 
-    const bruto = cant * precioSug;
-    const neto  = cant * precioUnitario;
+    const sugerido = cant * precioSug;
+    const real     = cant * precioUnitario;
 
-    totalBruto      += bruto;
-    totalNetoLineas += neto;
+    totalSugerido  += sugerido;
+    totalBrutoReal += real;
 
-    // Descuento de línea = sugerido - final, nunca negativo
-    const diff          = precioSug - precioUnitario;
-    const descuentoUnit = Math.max(0, diff);
-    descuentoLineas    += descuentoUnit * cant;
+    const diff = sugerido - real; // + => descuento, - => recargo
+    if (diff > 0) descuentoLineas += diff;
+    else         recargoLineas   += Math.abs(diff);
   });
 
-  // 2) Descuento global (%)
+  // 2) Descuento global (%) — debe aplicarse sobre el TOTAL REAL, no sobre el sugerido
   const pctEl = document.getElementById("ventaDescuentoPorcentaje");
   const pct   = pctEl ? (parseFloat(pctEl.value) || 0) : 0;
-  const descuentoVenta = totalBruto * (pct / 100);
+
+  const descuentoVenta = totalBrutoReal * (pct / 100);
 
   // 3) Descuento total y total neto final
+  // Descuento total = (descuento por bajar precios) + (descuento % global)
   const descuentoTotal = descuentoLineas + descuentoVenta;
-  const totalNetoFinal = totalBruto - descuentoTotal;
+
+  // Total neto final = total real - descuento global
+  // (porque el “descuento de línea” ya está incorporado en totalBrutoReal)
+  const totalNetoFinal = totalBrutoReal - descuentoVenta;
 
   // 4) Refrescar UI
   const spanTotalBruto = document.getElementById("ventaTotalBruto");
   const spanTotalDesc  = document.getElementById("ventaTotalDescuento");
   const spanTotalNeto  = document.getElementById("ventaTotalNeto");
 
-  if (spanTotalBruto) spanTotalBruto.textContent = totalBruto.toFixed(2);
+  if (spanTotalBruto) spanTotalBruto.textContent = totalBrutoReal.toFixed(2);
   if (spanTotalDesc)  spanTotalDesc.textContent  = descuentoTotal.toFixed(2);
   if (spanTotalNeto)  spanTotalNeto.textContent  = totalNetoFinal.toFixed(2);
 
   // 5) Guardar para el payload al backend
   window.__VENTA_TOTALS__ = {
-    totalBruto,
-    descuentoLineas,
-    descuentoVenta,
-    descuentoTotal,
+    totalBruto: totalBrutoReal,          // ✅ ahora sí: lo real
+    totalSugerido,                       // referencia
+    descuentoLineas,                     // referencia
+    recargoLineas,                       // opcional
+    descuentoVenta,                      // ✅ % sobre lo real
+    descuentoTotal,                      // línea + % (solo para reporteo)
     totalNeto: totalNetoFinal,
     descuentoPorcentaje: pct
   };
 }
+
 
 
 function resetVenta(){
