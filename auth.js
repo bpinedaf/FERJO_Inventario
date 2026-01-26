@@ -12,6 +12,21 @@ function getToken(){
   return AUTH.token || sessionStorage.getItem('FERJO_ID_TOKEN') || '';
 }
 
+function jwtPayload_(token){
+  try{
+    const b64 = token.split('.')[1];
+    const json = atob(b64.replace(/-/g,'+').replace(/_/g,'/'));
+    return JSON.parse(json);
+  }catch{ return null; }
+}
+
+function tokenExpiringSoon_(token, skewSeconds = 300){ // 5 min
+  const p = jwtPayload_(token);
+  if (!p || !p.exp) return true;
+  const now = Math.floor(Date.now()/1000);
+  return (p.exp - now) < skewSeconds;
+}
+
 function hasRole(required){
   if (!Array.isArray(required)) {
     required = (required||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
@@ -35,6 +50,54 @@ function showProtectedUI(show){
     // limpiar estados activos por higiene visual
     document.querySelectorAll('.tab.active').forEach(t=>t.classList.remove('active'));
     document.querySelectorAll('.panel.active').forEach(p=>p.classList.remove('active'));
+  }
+}
+
+let _refreshPromise = null;
+
+function refreshIdTokenSilently_(){
+  if (_refreshPromise) return _refreshPromise;
+
+  _refreshPromise = new Promise((resolve, reject) => {
+    if (!window.google || !google.accounts || !google.accounts.id) {
+      _refreshPromise = null;
+      return reject(new Error('GIS no cargado'));
+    }
+
+    // Pedimos un nuevo credential. Si la sesión Google sigue activa,
+    // normalmente devuelve token sin que el usuario haga nada.
+    google.accounts.id.prompt((notification) => {
+      // Si no se pudo mostrar/emitir (ej. no hay sesión), lo dejamos caer.
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        _refreshPromise = null;
+        reject(new Error('No se pudo refrescar en silencio'));
+      }
+      // Si sí se mostró o se emitió, el token llegará por onCredentialResponse()
+      // y ahí se guardará en sessionStorage + validateToken...
+      // Entonces esperamos un poquito a que eso ocurra.
+      setTimeout(() => {
+        const t = sessionStorage.getItem('FERJO_ID_TOKEN') || '';
+        _refreshPromise = null;
+        if (t) resolve(t);
+        else reject(new Error('Refresh no retornó token'));
+      }, 600);
+    });
+  });
+
+  return _refreshPromise;
+}
+
+async function ensureFreshToken_(){
+  const t = getToken();
+  if (t && !tokenExpiringSoon_(t, 300)) return t; // aún sirve
+
+  // intenta refresh silencioso
+  try{
+    const nt = await refreshIdTokenSilently_();
+    return nt;
+  }catch{
+    // Si no se pudo refrescar, devolvemos el actual (backend probablemente dirá no autorizado)
+    return t || '';
   }
 }
 
