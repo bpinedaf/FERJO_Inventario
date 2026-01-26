@@ -171,8 +171,13 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const saved = sessionStorage.getItem('FERJO_ID_TOKEN');
   if (saved){
     try{
-      await validateTokenAndLoadProfile(saved);
+      if (tokenExpiringSoon_(saved, 300)) {
       AUTH.token = saved;
+      await refreshIdTokenSilently_();
+    }
+    const t = getToken();
+    await validateTokenAndLoadProfile(t);
+    AUTH.token = t;
     }catch(err){
       console.warn('[AUTH] Token guardado inválido; se requiere login:', err);
       sessionStorage.removeItem('FERJO_ID_TOKEN');
@@ -191,3 +196,6 @@ window.hasRole = hasRole;
 window.applyRoleVisibility = applyRoleVisibility;
 window.getToken = getToken;
 window.showProtectedUI = showProtectedUI;
+window.ensureFreshToken_ = ensureFreshToken_;
+window.refreshIdTokenSilently_ = refreshIdTokenSilently_;
+
