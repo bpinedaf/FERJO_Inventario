@@ -80,53 +80,43 @@ function getToken(){
 function apiUrlAuth(path, extraParams = {}){
   const base = apiBase();
   const sep  = base.includes('?') ? '&' : '?';
-  const params = { path, token: getToken(), ...extraParams }; // 👈 token primero, extraParams después
-  const qs   = new URLSearchParams(params).toString();
+
+  const params = { path, ...extraParams };
+  if (!params.token) params.token = getToken(); // fallback
+
+  const qs = new URLSearchParams(params).toString();
   return base + sep + qs;
 }
 
+
 // POST urlencoded + token (usa auth.js si está disponible)
+async function getWithToken(path, params={}){
+  const t = (window.ensureFreshToken_ ? await window.ensureFreshToken_() : getToken());
+  return await fetchJSON(apiUrlAuth(path, { ...params, token: t }));
+}
+
 async function postWithToken(path, payload={}){
-  if (typeof window.postForm === 'function') {
-    return await window.postForm(path, payload);      // usa auth.js (token en body)
-  }
-  // Fallback manual (urlencoded + token)
-  const body = new URLSearchParams({ ...payload, token: getToken() });
+  const t = (window.ensureFreshToken_ ? await window.ensureFreshToken_() : getToken());
+
+  // urlencoded + token (simple request)
+  const body = new URLSearchParams({ ...payload, token: t });
   const url  = apiBase() + (apiBase().includes('?') ? '&' : '?') + 'path=' + encodeURIComponent(path);
-  const res  = await fetch(url, { method:'POST', body });
+
+  const res = await fetch(url, { method:'POST', body });
   try{ return await res.json(); }catch{ return { ok:false, status:res.status, raw: await res.text() }; }
 }
 
-async function getWithToken(path, params={}){
-  if (typeof window.getJSON === 'function') {
-    return await window.getJSON(path, params);        // usa auth.js (token en query)
-  }
-  // Fallback manual (query + token)
-  const url = apiUrlAuth(path, params);
-  return await fetchJSON(url);
-}
 
 // Helper para POST JSON (ventas) SIN disparar preflight
 async function postJSONWithToken(path, payload = {}) {
-  const fresh = (window.ensureFreshToken_ ? await window.ensureFreshToken_() : window.getToken());
-  const url  = apiUrlAuth(path, fresh);   // token en query
-  const body = JSON.stringify(payload);  // sin headers personalizados
+  const t = (window.ensureFreshToken_ ? await window.ensureFreshToken_() : getToken());
+  const url = apiUrlAuth(path, { token: t });
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      body
-    });
-    const txt = await res.text();
-    try {
-      return JSON.parse(txt);
-    } catch {
-      return { ok: false, raw: txt, status: res.status };
-    }
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  const res = await fetch(url, { method:'POST', body: JSON.stringify(payload) });
+  const txt = await res.text();
+  try { return JSON.parse(txt); } catch { return { ok:false, raw:txt, status:res.status }; }
 }
+
 
 // Helper SOLO para CIERRE (forzar request simple + capturar raw)
 async function postCashCloseWithToken(payload = {}) {
