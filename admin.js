@@ -1322,6 +1322,23 @@ const resumenWrapper   = document.getElementById('resumenVentasWrapper');
 const formAnularVenta = document.getElementById('formAnularVenta');
 const respAnularVenta = document.getElementById('respAnularVenta');
 
+// ===================================================
+//   RESUMEN DE VENTAS DEL DÍA PARA CIERRE DE CAJA
+// ===================================================
+const formResumenVentasCaja     = document.getElementById('formResumenVentasCaja');
+const fechaResumenVentasCaja    = document.getElementById('fechaResumenVentasCaja');
+const respResumenVentasCaja     = document.getElementById('respResumenVentasCaja');
+
+const totalesDiaCajaBox         = document.getElementById('totales-dia-caja');
+const detalleVentasCajaTbody    = document.getElementById('detalle-ventas-caja-body');
+const resumenCajaWrapper        = document.getElementById('resumenVentasCajaWrapper');
+
+// set fecha default (hoy)
+if (fechaResumenVentasCaja && !fechaResumenVentasCaja.value) {
+  fechaResumenVentasCaja.value = todayISO__(); // ya existe arriba en el archivo
+}
+
+
 
 let chartVentas = null;
 let chartMargen = null;
@@ -1359,6 +1376,21 @@ function renderTotales(out) {
     </ul>
   `;
 }
+
+function renderTotalesCaja(out) {
+  const t = out.totales || {};
+  const fecha = out.fecha || '';
+
+  if (!totalesDiaCajaBox) return;
+
+  totalesDiaCajaBox.innerHTML = `
+    <h4>Total vendido del día (${fecha})</h4>
+    <ul>
+      <li><strong>Total del día:</strong> Q ${Number(t.total_dia || 0).toFixed(2)}</li>
+    </ul>
+  `;
+}
+
 
 // Renderiza o actualiza las gráficas (Chart.js)
 function renderCharts(out) {
@@ -1672,6 +1704,60 @@ if (formResumenVentas && respResumenVentas && detalleVentasTbody) {
     const idx = Number(tr.dataset.index);
     if (!Number.isNaN(idx)) {
       seleccionarVentaPorIndex(idx);
+    }
+  });
+}
+
+// ================================
+// Resumen ventas del día (Caja)
+// ================================
+if (formResumenVentasCaja && detalleVentasCajaTbody) {
+  formResumenVentasCaja.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (respResumenVentasCaja) respResumenVentasCaja.textContent = '';
+
+    const fecha = (fechaResumenVentasCaja?.value || '').trim();
+    if (!fecha) {
+      alert('Selecciona una fecha.');
+      return;
+    }
+
+    // Mostrar wrapper
+    if (resumenCajaWrapper) resumenCajaWrapper.style.display = 'block';
+
+    try {
+      const out = await getWithToken('sales_summary', { fecha });
+
+      if (respResumenVentasCaja) showResp(respResumenVentasCaja, out);
+
+      if (!out || !out.ok) {
+        // limpiar tabla si falla
+        detalleVentasCajaTbody.innerHTML = '';
+        return;
+      }
+
+      // Totales (solo total_dia)
+      renderTotalesCaja(out);
+
+      // Tabla (solo Hora/Cliente/Tipo/Total Neto)
+      const ventas = Array.isArray(out.detalle_ventas) ? out.detalle_ventas : [];
+      detalleVentasCajaTbody.innerHTML = '';
+
+      ventas.forEach((v) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${v.hora || ''}</td>
+          <td>${v.cliente || ''}</td>
+          <td>${v.tipo_venta || ''}</td>
+          <td style="text-align:right;">Q ${Number(v.total_neto || 0).toFixed(2)}</td>
+        `;
+        detalleVentasCajaTbody.appendChild(tr);
+      });
+
+    } catch (err) {
+      if (respResumenVentasCaja) showResp(respResumenVentasCaja, { ok:false, error: String(err) });
+      detalleVentasCajaTbody.innerHTML = '';
     }
   });
 }
