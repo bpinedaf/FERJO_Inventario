@@ -1315,8 +1315,7 @@ if (formCierreCaja) {
     respCierreCaja.textContent = 'Guardando cierre...';
 
     try {
-      //const out = await postJSONWithToken('cash_close_register', 
-      const out = await postCashCloseWithToken(payload); {
+      const out = await postCashCloseWithToken({
         fecha,
         efectivo_contado: efectivo,
         notas
