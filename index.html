@@ -725,7 +725,53 @@
         </form>
         
         <pre id="respCierreCaja" class="resp" style="display:none;"></pre>
-        
+
+        <!-- =========================
+         RESUMEN DE VENTAS DEL DÍA (para cierre de caja)
+         ========================= -->
+          <h3>Ventas del día (para cierre)</h3>
+          <p class="panel-subtitle" style="margin-top:-6px;">
+            Solo muestra ventas y total del día (sin costo/ganancia).
+          </p>
+          
+          <form id="formResumenVentasCaja" class="reportes-form" style="margin-top:10px;">
+            <div class="grid">
+              <label>Fecha
+                <input type="date" id="fechaResumenVentasCaja" name="fecha">
+              </label>
+            </div>
+            <div class="actions">
+              <button type="submit">Ver ventas del día</button>
+            </div>
+          </form>
+          
+          <section id="resumenVentasCajaWrapper" style="margin-top:1rem; display:none;">
+            <div id="totales-dia-caja"></div>
+          
+            <details open style="margin-top:1rem;">
+              <summary style="cursor:pointer; font-weight:600;">Ver detalle de ventas</summary>
+          
+              <div class="table-wrapper" style="margin-top:1rem;">
+                <table class="tabla">
+                  <thead>
+                    <tr>
+                      <th>Hora</th>
+                      <th>Cliente</th>
+                      <th>Tipo</th>
+                      <th style="text-align:right;">Total neto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="detalle-ventas-caja-body"></tbody>
+                </table>
+              </div>
+            </details>
+          
+            <details style="margin-top:1rem;">
+              <summary style="cursor:pointer; font-weight:600;">Ver JSON (debug)</summary>
+              <pre id="respResumenVentasCaja" class="resp"></pre>
+            </details>
+          </section>
+
         <hr>
       </div>
     
