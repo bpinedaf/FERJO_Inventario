@@ -78,9 +78,9 @@ function getToken(){
 
 // Construye URL incluyendo path y token en query (especial para multipart)
 function apiUrlAuth(path, extraParams = {}){
-  const base = apiBase();                         // puede traer ?user_content_key=...&lib=...
+  const base = apiBase();
   const sep  = base.includes('?') ? '&' : '?';
-  const params = { path, ...extraParams, token: getToken() };
+  const params = { path, token: getToken(), ...extraParams }; // 👈 token primero, extraParams después
   const qs   = new URLSearchParams(params).toString();
   return base + sep + qs;
 }
@@ -108,7 +108,8 @@ async function getWithToken(path, params={}){
 
 // Helper para POST JSON (ventas) SIN disparar preflight
 async function postJSONWithToken(path, payload = {}) {
-  const url  = apiUrlAuth(path);   // token en query
+  const fresh = (window.ensureFreshToken_ ? await window.ensureFreshToken_() : window.getToken());
+  const url  = apiUrlAuth(path, fresh);   // token en query
   const body = JSON.stringify(payload);  // sin headers personalizados
 
   try {
