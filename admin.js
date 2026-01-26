@@ -127,6 +127,31 @@ async function postJSONWithToken(path, payload = {}) {
   }
 }
 
+// Helper SOLO para CIERRE (forzar request simple + capturar raw)
+async function postCashCloseWithToken(payload = {}) {
+  const url = apiUrlAuth('cash_close_register'); // token en query
+  const body = JSON.stringify(payload);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      // Forzamos un Content-Type "simple" para evitar preflight en todos los navegadores
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body
+    });
+
+    const txt = await res.text();
+    try {
+      return JSON.parse(txt);
+    } catch {
+      // Esto nos ayuda a ver si viene HTML (consent/login/error)
+      return { ok:false, raw: txt, status: res.status };
+    }
+  } catch (err) {
+    return { ok:false, error: String(err) };
+  }
+}
+
 
 // ===================================================
 //               PRODUCTOS: upsert / fetch
@@ -1290,7 +1315,8 @@ if (formCierreCaja) {
     respCierreCaja.textContent = 'Guardando cierre...';
 
     try {
-      const out = await postJSONWithToken('cash_close_register', {
+      //const out = await postJSONWithToken('cash_close_register', 
+      const out = await postCashCloseWithToken(payload); {
         fecha,
         efectivo_contado: efectivo,
         notas
