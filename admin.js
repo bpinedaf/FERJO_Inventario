@@ -129,28 +129,26 @@ async function postJSONWithToken(path, payload = {}) {
 
 // Helper SOLO para CIERRE (forzar request simple + capturar raw)
 async function postCashCloseWithToken(payload = {}) {
-  const url = apiUrlAuth('cash_close_register'); // token en query
+  const url  = apiUrlAuth('cash_close_register');
   const body = JSON.stringify(payload);
 
   try {
-    const res = await fetch(url, {
+    // IMPORTANTE: no-cors => respuesta "opaque" (no se puede leer),
+    // pero el POST sí se envía.
+    await fetch(url, {
       method: 'POST',
-      // Forzamos un Content-Type "simple" para evitar preflight en todos los navegadores
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body
     });
 
-    const txt = await res.text();
-    try {
-      return JSON.parse(txt);
-    } catch {
-      // Esto nos ayuda a ver si viene HTML (consent/login/error)
-      return { ok:false, raw: txt, status: res.status };
-    }
+    // No sabemos si el server devolvió ok, así que verificamos aparte con otro endpoint.
+    return { ok: true, opaque: true };
   } catch (err) {
-    return { ok:false, error: String(err) };
+    return { ok: false, error: String(err) };
   }
 }
+
 
 
 // ===================================================
