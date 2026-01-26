@@ -1727,7 +1727,7 @@ if (formResumenVentasCaja && detalleVentasCajaTbody) {
     if (resumenCajaWrapper) resumenCajaWrapper.style.display = 'block';
 
     try {
-      const out = await getWithToken('sales_summary', { fecha });
+      const out = await getWithToken('sales_summary', { fecha, mode:'caja' });
 
       if (respResumenVentasCaja) showResp(respResumenVentasCaja, out);
 
