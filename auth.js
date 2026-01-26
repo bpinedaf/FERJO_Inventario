@@ -64,28 +64,36 @@ function refreshIdTokenSilently_(){
       return reject(new Error('GIS no cargado'));
     }
 
-    // Pedimos un nuevo credential. Si la sesión Google sigue activa,
-    // normalmente devuelve token sin que el usuario haga nada.
+    const before = sessionStorage.getItem('FERJO_ID_TOKEN') || '';
+
     google.accounts.id.prompt((notification) => {
-      // Si no se pudo mostrar/emitir (ej. no hay sesión), lo dejamos caer.
+      // Si no se pudo mostrar/emitir (ej. no hay sesión), salir ya.
       if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
         _refreshPromise = null;
-        reject(new Error('No se pudo refrescar en silencio'));
+        return reject(new Error('No se pudo refrescar en silencio'));
       }
-      // Si sí se mostró o se emitió, el token llegará por onCredentialResponse()
-      // y ahí se guardará en sessionStorage + validateToken...
-      // Entonces esperamos un poquito a que eso ocurra.
+
+      // Esperar a que onCredentialResponse guarde un token nuevo
       setTimeout(() => {
-        const t = sessionStorage.getItem('FERJO_ID_TOKEN') || '';
+        const after = sessionStorage.getItem('FERJO_ID_TOKEN') || '';
         _refreshPromise = null;
-        if (t) resolve(t);
-        else reject(new Error('Refresh no retornó token'));
-      }, 600);
+
+        // si cambió, bien
+        if (after && after !== before) return resolve(after);
+
+        // si no cambió pero al menos no expira pronto, también sirve
+        if (after && typeof tokenExpiringSoon_ === 'function' && !tokenExpiringSoon_(after, 300)) {
+          return resolve(after);
+        }
+
+        return reject(new Error('Refresh no retornó token nuevo'));
+      }, 900);
     });
   });
 
   return _refreshPromise;
 }
+
 
 async function ensureFreshToken_(){
   const t = getToken();
