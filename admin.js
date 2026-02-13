@@ -11,6 +11,17 @@ let pagoSubmitting = false;
 let movimientoSubmitting = false;
 
 // =============================
+// Idempotencia - request_id único por operación
+// =============================
+function generateRequestId() {
+  if (window.crypto && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'REQ-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
+}
+
+
+// =============================
 // Helper API
 // =============================
 function apiUrl(path) {
@@ -51,6 +62,9 @@ if (formVenta) {
       const formData = new FormData(formVenta);
       const payload = Object.fromEntries(formData.entries());
       payload.items = ventaItems;
+      
+      // 🔒 IDEMPOTENCIA
+      payload.request_id = generateRequestId();
 
       const resp = await postData("sale_register", payload);
 
@@ -106,6 +120,9 @@ if (formCompra) {
       const formData = new FormData(formCompra);
       const payload = Object.fromEntries(formData.entries());
       payload.items = compraItems;
+
+      // 🔒 IDEMPOTENCIA
+      payload.request_id = generateRequestId();
 
       const resp = await postData("purchase_register", payload);
 
