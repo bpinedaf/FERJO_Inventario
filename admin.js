@@ -1,3 +1,6 @@
+console.log("ADMIN.JS INICIANDO");
+
+
 // =====================
 // admin.js (completo) — versión robusta (anti-fallas) + “Con stock / Sin stock” en inventario
 // =====================
