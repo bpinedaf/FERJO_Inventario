@@ -2772,7 +2772,7 @@ function renderInventario(rows){
       <td>${it.nombre || ''}</td>
       <td style="text-align:right;">${formatEntero(it.cantidad)}</td>
       <td style="text-align:right;">${formatQ(it.costo)}</td>
-      <tdstyle="text-align:right;">${formatQ(it.precio_de_venta || 0)}</td>
+      <tdstyle="text-align:right;">${formatQ(it.precio_de_venta)}</td>
       <td style="text-align:right; font-weight:600; color:${color};">
         ${margen.toFixed(2)}%
       </td>
