@@ -2760,6 +2760,7 @@ function renderInventario(rows){
       <td>${it.nombre || ''}</td>
       <td style="text-align:right;">${formatEntero(it.cantidad)}</td>
       <td style="text-align:right;">${formatQ(it.costo)}</td>
+      <td>Q ${Number(item.precio_de_venta || 0).toFixed(2)}</td>
     `;
     tb.appendChild(tr);
   }
