@@ -2761,6 +2761,11 @@ function renderInventario(rows){
       <td style="text-align:right;">${formatEntero(it.cantidad)}</td>
       <td style="text-align:right;">${formatQ(it.costo)}</td>
       <td>Q ${Number(it.precio_de_venta || 0).toFixed(2)}</td>
+      let margen = 0;
+      if (it.precio_de_venta > 0) {
+        margen = ((it.precio_de_venta - it.costo) / it.precio_de_venta) * 100;
+      }
+      <td>${margen.toFixed(2)}%</td>
     `;
     tb.appendChild(tr);
   }
