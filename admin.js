@@ -2758,6 +2758,14 @@ function renderInventario(rows){
       if (it.precio_de_venta > 0) {
         margen = ((it.precio_de_venta - it.costo) / it.precio_de_venta) * 100;
       }
+
+    // 🎨 Definir color según margen
+    let color = 'green';
+    if (margen < 0) color = '#8B0000';        // rojo oscuro (grave)
+    else if (margen < 10) color = 'red';
+    else if (margen < 20) color = 'orange';
+    else if (margen < 35) color = '#2E8B57';  // verde medio
+    else color = '#006400';                   // verde fuerte
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${it.id_del_articulo || ''}</td>
@@ -2765,7 +2773,9 @@ function renderInventario(rows){
       <td style="text-align:right;">${formatEntero(it.cantidad)}</td>
       <td style="text-align:right;">${formatQ(it.costo)}</td>
       <td>Q ${Number(it.precio_de_venta || 0).toFixed(2)}</td>
-      <td>${margen.toFixed(2)}%</td>
+      <td style="text-align:right; font-weight:600; color:${color};">
+        ${margen.toFixed(2)}%
+      </td>
     `;
     tb.appendChild(tr);
   }
