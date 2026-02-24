@@ -2885,3 +2885,35 @@ document.addEventListener('DOMContentLoaded', wireInventarioUI);
   };
 
 })();
+
+(function(){
+
+  const modal = document.getElementById('globalConfirmModal');
+  const content = document.getElementById('globalConfirmContent');
+  const btnOk = document.getElementById('globalConfirmOk');
+  const btnCancel = document.getElementById('globalConfirmCancel');
+
+  if (!modal) return;
+
+  window.confirm = function(message){
+
+    return new Promise((resolve) => {
+
+      content.innerHTML = `<p>${message.replace(/\n/g,'<br>')}</p>`;
+      modal.style.display = 'flex';
+
+      btnOk.onclick = () => {
+        modal.style.display = 'none';
+        resolve(true);
+      };
+
+      btnCancel.onclick = () => {
+        modal.style.display = 'none';
+        resolve(false);
+      };
+
+    });
+
+  };
+
+})();
