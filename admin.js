@@ -140,7 +140,18 @@ async function postCashCloseWithToken(payload = {}) {
   }
 }
 
+function setButtonLoading(btn, loading, textLoading = 'Procesando...') {
+  if (!btn) return;
 
+  if (loading) {
+    btn.dataset.originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span> ${textLoading}`;
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = btn.dataset.originalText || 'Guardar';
+  }
+}
 
 // ===================================================
 //               PRODUCTOS: upsert / fetch
@@ -776,6 +787,8 @@ formVenta.addEventListener('submit', async (e)=>{
   e.preventDefault();
   respVenta.textContent = '';
 
+  const btn = document.getElementById('btnVentaRegistrar');
+
   if (!ventaItems.length){
     alert('Agrega al menos un producto a la venta.');
     return;
@@ -812,18 +825,14 @@ formVenta.addEventListener('submit', async (e)=>{
       precio_unitario: it.precio_unitario
     }))
   };
-  
-  // Pago inicial
+
   if (pagoInicialMonto > 0){
     payload.pago_inicial = {
       monto: pagoInicialMonto,
       forma_pago: pagoInicialForma || ''
     };
   }
-  
-  // ===============================
-  // AÑADIR DESCUENTOS Y TOTALES
-  // ===============================
+
   if (window.__VENTA_TOTALS__) {
     const t = window.__VENTA_TOTALS__;
     payload.descuento_porcentaje = t.descuentoPorcentaje;
@@ -831,40 +840,57 @@ formVenta.addEventListener('submit', async (e)=>{
     payload.total_bruto = t.totalBruto;
     payload.total_descuento = t.descuentoTotal;
     payload.total_neto = t.totalNeto;
-  
-    // Opcional (si quieres depurar en backend)
     payload.descuento_lineas = t.descuentoLineas;
   }
-
-
 
   appendResp(respVenta, { debug:'POST sale_register', payload_preview: {
     cliente_nombre,
     items: payload.items.length
   }});
 
-  const out = await postJSONWithToken('sale_register', payload);
-  showResp(respVenta, out);
+  // 🔹 ACTIVAR LOADING
+  setButtonLoading(btn, true, 'Registrando venta...');
 
-  if (out && out.ok){
-    ventaDocUrlUltima = out.doc_url || '';
+  const startTime = performance.now();
 
-    if (btnVentaVerComprobante) {
-      btnVentaVerComprobante.disabled = !ventaDocUrlUltima;
+  try {
+
+    const out = await postJSONWithToken('sale_register', payload);
+    showResp(respVenta, out);
+
+    if (out && out.ok){
+
+      const endTime = performance.now();
+      const seconds = ((endTime - startTime) / 1000).toFixed(2);
+
+      ventaDocUrlUltima = out.doc_url || '';
+
+      if (btnVentaVerComprobante) {
+        btnVentaVerComprobante.disabled = !ventaDocUrlUltima;
+      }
+
+      alert(
+        `Venta registrada correctamente.\n` +
+        `ID: ${out.id_venta}\n` +
+        `Total: Q ${Number(out.total_neto || 0).toFixed(2)}\n` +
+        `Tiempo: ${seconds} s`
+      );
+
+      if (ventaDocUrlUltima) {
+        window.open(ventaDocUrlUltima, '_blank');
+      }
+
+      resetVenta();
     }
 
-    alert(
-      `Venta registrada correctamente.\n` +
-      `ID: ${out.id_venta}\n` +
-      `Total: Q ${Number(out.total_neto || 0).toFixed(2)}`
-    );
-
-    if (ventaDocUrlUltima) {
-      window.open(ventaDocUrlUltima, '_blank');
-    }
-
-    resetVenta();
+  } catch (err) {
+    console.error(err);
+    alert('Error al registrar la venta.');
+  } finally {
+    // 🔹 DESACTIVAR LOADING
+    setButtonLoading(btn, false);
   }
+
 });
 
 // ===================================================
