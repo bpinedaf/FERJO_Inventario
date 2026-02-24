@@ -1721,6 +1721,9 @@ if (formResumenVentas && respResumenVentas && detalleVentasTbody) {
           <td style="text-align:right;">Q ${Number(v.total_neto || 0).toFixed(2)}</td>
           <td style="text-align:right;">Q ${Number(v.pagado || 0).toFixed(2)}</td>
           <td style="text-align:right;">Q ${Number(v.saldo || 0).toFixed(2)}</td>
+          <td style="text-align:right; font-weight:600; color:${v.ganancia_total >= 0 ? '#006400' : '#8B0000'};">
+            ${formatQ(v.ganancia_total || 0)}
+          </td>
         `;
         detalleVentasTbody.appendChild(tr);
       });
@@ -1918,6 +1921,10 @@ function renderSalesReport(data) {
       const tdSaldo = document.createElement('td');
       tdSaldo.style.textAlign = 'right';
       tdSaldo.textContent = formatQ(dia.saldo_pendiente);
+
+      <td style="text-align:right; font-weight:600;">
+        ${formatQ(row.ganancia_estimada || 0)}
+      </td>
 
       tr.appendChild(tdFecha);
       tr.appendChild(tdTotal);
