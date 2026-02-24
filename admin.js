@@ -2313,7 +2313,7 @@ async function cargarDashboard() {
 
       document.getElementById("kpiHoy").textContent        = formatQ(ventasHoy);
       document.getElementById("kpiMes").textContent        = formatQ(ventasMes);
-      document.getElementById("kpiStockBajo").textContent  = formatEntero(stockBajo);
+      document.getElementById("kpiStockBajo").textContent  = formatEntero(Math.round(stockBajo));
       document.getElementById("kpiInventario").textContent = formatQ(inventarioTotal);
     } else {
       console.warn("dashboard_stats sin datos válidos:", stats);
