@@ -1620,9 +1620,8 @@ if (formAnularVenta && respAnularVenta) {
       `¿Seguro que deseas ANULAR la venta ${id_venta}?\n` +
       `Esto revertirá los movimientos de inventario asociados ` +
       `y la venta ya no contará en los totales ni reportes.`;
-    if (!confirm(msgConfirm)) {
-      return;
-    }
+    const ok = await confirm(msgConfirm);
+    if (!ok) return;
 
     // Llamamos al backend: POST JSON con token en query (?token=...)
     const payload = {
@@ -1892,49 +1891,58 @@ function renderSalesReport(data) {
   }
 
   // --- Ventas por día ---
+  // --- Ventas por día ---
   if (repAvPorDiaBody) {
     repAvPorDiaBody.innerHTML = '';
     const porDia = data.por_dia || [];
-
+  
     porDia.forEach(dia => {
       const tr = document.createElement('tr');
-
+  
       const tdFecha = document.createElement('td');
       tdFecha.textContent = dia.fecha;
-
+  
       const tdTotal = document.createElement('td');
       tdTotal.style.textAlign = 'right';
       tdTotal.textContent = formatQ(dia.total_dia);
-
+  
       const tdContado = document.createElement('td');
       tdContado.style.textAlign = 'right';
       tdContado.textContent = formatQ(dia.contado);
-
+  
       const tdCredito = document.createElement('td');
       tdCredito.style.textAlign = 'right';
       tdCredito.textContent = formatQ(dia.credito);
-
+  
       const tdPagado = document.createElement('td');
       tdPagado.style.textAlign = 'right';
       tdPagado.textContent = formatQ(dia.pagado_dia);
-
+  
       const tdSaldo = document.createElement('td');
       tdSaldo.style.textAlign = 'right';
       tdSaldo.textContent = formatQ(dia.saldo_pendiente);
-
+  
+      // ✅ NUEVO: Ganancia estimada por día (si viene del backend)
+      const tdGan = document.createElement('td');
+      tdGan.style.textAlign = 'right';
+      tdGan.style.fontWeight = '600';
+      tdGan.textContent = formatQ(dia.ganancia_estimada || 0);
+  
       tr.appendChild(tdFecha);
       tr.appendChild(tdTotal);
       tr.appendChild(tdContado);
       tr.appendChild(tdCredito);
       tr.appendChild(tdPagado);
       tr.appendChild(tdSaldo);
+      tr.appendChild(tdGan); // ✅
+  
       repAvPorDiaBody.appendChild(tr);
     });
-
+  
     if (!porDia.length) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 6;
+      td.colSpan = 7; // ✅ antes 6
       td.textContent = 'No hay ventas en este rango.';
       td.style.fontStyle = 'italic';
       tr.appendChild(td);
