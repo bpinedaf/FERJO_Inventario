@@ -1922,10 +1922,6 @@ function renderSalesReport(data) {
       tdSaldo.style.textAlign = 'right';
       tdSaldo.textContent = formatQ(dia.saldo_pendiente);
 
-      <td style="text-align:right; font-weight:600;">
-        ${formatQ(row.ganancia_estimada || 0)}
-      </td>
-
       tr.appendChild(tdFecha);
       tr.appendChild(tdTotal);
       tr.appendChild(tdContado);
