@@ -2865,3 +2865,23 @@ function wireInventarioUI(){
 }
 
 document.addEventListener('DOMContentLoaded', wireInventarioUI);
+
+(function(){
+
+  const modal = document.getElementById('globalAlertModal');
+  const content = document.getElementById('globalAlertContent');
+  const btn = document.getElementById('globalAlertBtn');
+
+  if (!modal) return;
+
+  window.alert = function(message){
+
+    content.innerHTML = `<p>${message.replace(/\n/g,'<br>')}</p>`;
+    modal.style.display = 'flex';
+
+    btn.onclick = () => {
+      modal.style.display = 'none';
+    };
+  };
+
+})();
