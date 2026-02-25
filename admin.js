@@ -124,17 +124,32 @@ async function postCashCloseWithToken(payload = {}) {
   const body = JSON.stringify(payload);
 
   try {
-    // IMPORTANTE: no-cors => respuesta "opaque" (no se puede leer),
-    // pero el POST sí se envía.
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       mode: 'cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      redirect: 'follow',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
       body
     });
 
-    // No sabemos si el server devolvió ok, así que verificamos aparte con otro endpoint.
-    return { ok: true, opaque: true };
+    const text = await res.text();
+
+    if (!text) {
+      throw new Error('Respuesta vacía del servidor');
+    }
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error('Respuesta no es JSON válido:', text);
+      throw new Error('Respuesta inválida del servidor');
+    }
+
+    return data;
+
   } catch (err) {
     return { ok: false, error: String(err) };
   }
