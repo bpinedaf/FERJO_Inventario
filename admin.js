@@ -1339,7 +1339,28 @@ if (formCierreCaja) {
       showResp(respCierreCaja, out);
 
       if (out && out.ok) {
-        alert(`Cierre guardado ✅\nDiferencia: Q ${(Number(out.diferencia||0)).toFixed(2)}`);
+        const diff = Number(out.diferencia || 0).toFixed(2);
+      
+        let msg = `Cierre guardado ✅\nDiferencia: Q ${diff}`;
+      
+        if (out.drive_saved) {
+          msg += `\n\n📄 PDF guardado en Drive`;
+        }
+      
+        if (!out.email_sent) {
+          msg += `\n\n⚠ El correo no pudo enviarse`;
+        }
+      
+        alert(msg);
+      
+        // 🔥 Abrir PDF automáticamente para Sara
+        if (out.drive_file_url) {
+          const win = window.open(out.drive_file_url, '_blank');
+      
+          if (!win) {
+            alert('Permite ventanas emergentes para ver el PDF del cierre.');
+          }
+        }
       }
     } catch (err) {
       showResp(respCierreCaja, { ok:false, error: String(err) });
