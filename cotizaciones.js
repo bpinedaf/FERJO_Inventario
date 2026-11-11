@@ -85,9 +85,12 @@ async function save(){
  warn('Cotización '+r.id_cotizacion+' guardada. Total: '+money(r.total_neto));await loadHistory();
  }catch(e){warn(e.message,true);}finally{btn.disabled=false;}
 }
-async function loadProducts(){
- try{const r=await request('quotation_products',null,{q:''});state.products=r.products||[];drawResults();}
- catch(e){warn('No se pudo cargar el inventario: '+e.message,true);}
+let cotSearchTimer=null,cotSearchSeq=0;
+async function loadProducts(q=''){
+ const seq=++cotSearchSeq;
+ try{const r=await request('quotation_products',null,{q});if(seq!==cotSearchSeq)return;
+ state.products=r.products||[];drawResults();}
+ catch(e){if(seq===cotSearchSeq)warn('No se pudo buscar en el inventario: '+e.message,true);}
 }
 async function loadHistory(){
  try{const r=await request('quotation_list');state.history=r.cotizaciones||[];drawHistory();}
@@ -137,13 +140,13 @@ function init(){
  $('cotNueva').addEventListener('click',newQuotation);
  $('cotGuardar').addEventListener('click',save);
  $('cotPdf').addEventListener('click',makePdf);
- $('cotActualizar').addEventListener('click',()=>{loadProducts();loadHistory();});
- $('cotBuscarBtn').addEventListener('click',drawResults);
- $('cotBuscar').addEventListener('input',drawResults);
+ $('cotActualizar').addEventListener('click',()=>{loadProducts($('cotBuscar').value.trim());loadHistory();});
+ $('cotBuscarBtn').addEventListener('click',()=>loadProducts($('cotBuscar').value.trim()));
+ $('cotBuscar').addEventListener('input',()=>{clearTimeout(cotSearchTimer);cotSearchTimer=setTimeout(()=>loadProducts($('cotBuscar').value.trim()),280);});
  $('cotFiltrar').addEventListener('click',drawHistory);
  $('cotFiltro').addEventListener('input',drawHistory);
  $('cotDescuento').addEventListener('input',summary);
- document.querySelector('[data-tab="cotizaciones"]')?.addEventListener('click',()=>{if(!state.products.length)loadProducts();loadHistory();});
+ document.querySelector('[data-tab="cotizaciones"]')?.addEventListener('click',()=>{loadProducts($('cotBuscar').value.trim());loadHistory();});
  newQuotation();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
