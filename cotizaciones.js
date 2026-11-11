@@ -98,6 +98,22 @@ function drawHistory(){
  const rows=state.history.filter(x=>!q||String(x.id_cotizacion).toLowerCase().includes(q)||String(x.cliente_nombre).toLowerCase().includes(q));
  $('cotHistorial').innerHTML=rows.length?rows.map((x,i)=>'<tr><td>'+esc(x.id_cotizacion)+'</td><td>'+esc(x.fecha)+'</td><td>'+esc(x.cliente_nombre)+'</td><td>'+esc(x.estado)+'</td><td>'+money(x.total_neto)+'</td><td><button type="button" data-open="'+i+'" class="btn-secondary">Abrir</button></td></tr>').join(''):'<tr><td colspan="6">Sin cotizaciones para mostrar.</td></tr>';
  $('cotHistorial').querySelectorAll('button[data-open]').forEach(b=>b.addEventListener('click',()=>openQuotation(rows[Number(b.dataset.open)].id_cotizacion)));
+ $('cotHistorial').querySelectorAll('button[data-duplicate]').forEach(b=>b.addEventListener('click',async()=>{
+  await openQuotation(rows[Number(b.dataset.duplicate)].id_cotizacion);
+  state.id='';state.version=0;state.status='BORRADOR';$('cotNumero').textContent='Nueva cotización (copia)';$('cotPdf').disabled=true;
+  warn('Copia lista. Puedes modificarla y guardarla con un nuevo número.');
+ }));
+ for(const op of ['accept','reject'])$('cotHistorial').querySelectorAll('button[data-'+op+']').forEach(b=>b.addEventListener('click',async()=>{
+  const q=rows[Number(b.dataset[op])];const status=op==='accept'?'ACEPTADA':'RECHAZADA';
+  const yes=window.confirm('¿Marcar '+q.id_cotizacion+' como '+status+'?');
+  if((yes&&typeof yes.then==='function'?await yes:yes)!==true)return;
+  try{
+    const detail=await request('quotation_get',null,{id_cotizacion:q.id_cotizacion});
+    await request('quotation_status',{id_cotizacion:q.id_cotizacion,estado:status,version:detail.cotizacion.version});
+    warn('Cotización '+q.id_cotizacion+' marcada como '+status+'.');await loadHistory();
+  }catch(e){warn(e.message,true);}
+ }));
+
 }
 async function openQuotation(id){
  try{
@@ -112,7 +128,7 @@ async function openQuotation(id){
 async function makePdf(){
  if(!state.id)return warn('Guarda la cotización antes de generar PDF.',true);
  const btn=$('cotPdf');btn.disabled=true;
- try{const r=await request('quotation_pdf',{id_cotizacion:state.id});warn('PDF generado correctamente.');if(r.doc_url)window.open(r.doc_url,'_blank','noopener');await loadHistory();}
+ try{const r=await request('quotation_pdf',{id_cotizacion:state.id});state.status='EMITIDA';$('cotNumero').textContent=state.id+' · EMITIDA';warn('PDF generado correctamente.');if(r.doc_url)window.open(r.doc_url,'_blank','noopener');await loadHistory();}
  catch(e){warn('Error al generar PDF: '+e.message,true);}
  finally{btn.disabled=false;}
 }
