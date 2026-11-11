@@ -96,7 +96,7 @@ async function loadHistory(){
 function drawHistory(){
  const q=$('cotFiltro').value.trim().toLowerCase();
  const rows=state.history.filter(x=>!q||String(x.id_cotizacion).toLowerCase().includes(q)||String(x.cliente_nombre).toLowerCase().includes(q));
- $('cotHistorial').innerHTML=rows.length?rows.map((x,i)=>'<tr><td>'+esc(x.id_cotizacion)+'</td><td>'+esc(x.fecha)+'</td><td>'+esc(x.cliente_nombre)+'</td><td>'+esc(x.estado)+'</td><td>'+money(x.total_neto)+'</td><td><button type="button" data-open="'+i+'" class="btn-secondary">Abrir</button></td></tr>').join(''):'<tr><td colspan="6">Sin cotizaciones para mostrar.</td></tr>';
+ $('cotHistorial').innerHTML=rows.length?rows.map((x,i)=>'<tr><td>'+esc(x.id_cotizacion)+'</td><td>'+esc(x.fecha)+'</td><td>'+esc(x.cliente_nombre)+'</td><td>'+esc(x.estado)+'</td><td>'+money(x.total_neto)+'</td><td><button type="button" data-open="'+i+'" class="btn-secondary">Abrir</button> <button type="button" data-duplicate="'+i+'" class="btn-secondary">Duplicar</button> '+(x.estado==='EMITIDA'?'<button type="button" data-accept="'+i+'">Aceptar</button> <button type="button" data-reject="'+i+'" class="btn-secondary">Rechazar</button>':'')+'</td></tr>').join(''):'<tr><td colspan="6">Sin cotizaciones para mostrar.</td></tr>';
  $('cotHistorial').querySelectorAll('button[data-open]').forEach(b=>b.addEventListener('click',()=>openQuotation(rows[Number(b.dataset.open)].id_cotizacion)));
  $('cotHistorial').querySelectorAll('button[data-duplicate]').forEach(b=>b.addEventListener('click',async()=>{
   await openQuotation(rows[Number(b.dataset.duplicate)].id_cotizacion);
