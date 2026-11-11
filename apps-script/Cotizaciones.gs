@@ -143,3 +143,24 @@ function quotationPdf_(e){
  }catch(err){return jsonResponse({ok:false,error:String(err.message||err)});}
  finally{try{lock.releaseLock();}catch(_){}}
 }
+
+
+function quotationStatus_(e){
+ const lock=LockService.getScriptLock();lock.waitLock(30000);
+ try{
+  const ctx=requireAuth_(e);checkRole_(ctx,['ventas','inventario']);
+  const b=readBody_(e).data||{},id=cotStr_(b.id_cotizacion,100),next=cotStr_(b.estado,30).toUpperCase();
+  if(!id)throw Error('id_cotizacion requerido.');
+  if(!['ACEPTADA','RECHAZADA','EMITIDA'].includes(next))throw Error('Estado no permitido.');
+  const {head}=cotSheets_(),f=cotFind_(head,id);if(!f)throw Error('Cotización no encontrada.');
+  const prev=String(f.row.estado||'');
+  if(!((prev==='EMITIDA'&&['ACEPTADA','RECHAZADA'].includes(next))||(prev==='BORRADOR'&&next==='EMITIDA')))
+   throw Error('Transición no permitida: '+prev+' → '+next);
+  if(Number(b.version)!==Number(f.row.version))throw Error('Versión desactualizada. Recarga cotización.');
+  head.getRange(f.index,COT_HEAD.indexOf('estado')+1).setValue(next);
+  head.getRange(f.index,COT_HEAD.indexOf('updated_at')+1).setValue(new Date());
+  audit_('quotation_status',ctx.email,{id_cotizacion:id,estado_anterior:prev,estado:next},true);
+  return jsonResponse({ok:true,id_cotizacion:id,estado:next});
+ }catch(err){return jsonResponse({ok:false,error:String(err.message||err)});}
+ finally{try{lock.releaseLock();}catch(_){}}
+}
