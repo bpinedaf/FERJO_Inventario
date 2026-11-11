@@ -33,7 +33,7 @@ function cotCatalog_(){
 }
 function quotationProducts_(e){
  try{const ctx=requireAuth_(e);checkRole_(ctx,['ventas','inventario']);const q=cotStr_(e.parameter?.q,100).toLowerCase();
- const products=cotCatalog_().filter(p=>!q||p.id_del_articulo.toLowerCase().includes(q)||p.nombre.toLowerCase().includes(q)).slice(0,2500);
+ const products=cotCatalog_().filter(p=>!q||p.id_del_articulo.toLowerCase().includes(q)||p.nombre.toLowerCase().includes(q)).slice(0,80);
  return jsonResponse({ok:true,products});}catch(err){return jsonResponse({ok:false,error:String(err.message||err)});}
 }
 function quotationList_(e){
