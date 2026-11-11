@@ -1,0 +1,29 @@
+
+/* FERJO Cotizaciones - estilos aislados */
+#cotizaciones .cot-grid{display:grid;grid-template-columns:minmax(300px,1fr) minmax(380px,1.2fr);gap:18px}
+#cotizaciones .cot-card{padding:18px;border:1px solid #dbe3e8;border-radius:12px;background:white;margin:12px 0}
+#cotizaciones .cot-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#cotizaciones label{display:block;font-size:13px;font-weight:600;margin-bottom:10px}
+#cotizaciones input,#cotizaciones textarea{box-sizing:border-box;width:100%;margin-top:4px;padding:9px;border:1px solid #c9d2db;border-radius:7px;font:inherit;background:#fff;color:#14212c}
+#cotizaciones input:focus,#cotizaciones textarea:focus{outline:2px solid #8db7d8}
+#cotizaciones .cot-actions,#cotizaciones .cot-search,#cotizaciones .cot-toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:10px 0}
+#cotizaciones .cot-search input{flex:1;min-width:180px}
+#cotizaciones .cot-toolbar{justify-content:space-between}
+#cotizaciones .cot-toolbar span{font-size:13px;color:#667}
+#cotizaciones .cot-scroll{overflow:auto}
+#cotizaciones .cot-table{width:100%;border-collapse:collapse;font-size:13px}
+#cotizaciones .cot-table th,#cotizaciones .cot-table td{text-align:left;border-bottom:1px solid #e5e9ec;padding:8px 5px;vertical-align:middle}
+#cotizaciones .cot-table input{min-width:62px;width:90px;padding:5px}
+#cotizaciones .cot-table button{padding:6px 9px;font-size:12px}
+#cotizaciones .cot-resultados{max-height:240px;overflow:auto}
+#cotizaciones .cot-result{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid #e5e9ec;padding:8px 0}
+#cotizaciones .cot-result small{display:block;color:#667}
+#cotizaciones .cot-totales{margin:16px 0}
+#cotizaciones .cot-totales>div{display:flex;justify-content:space-between;padding:8px 0}
+#cotizaciones .cot-total{border-top:2px solid #283b48;font-size:19px;font-weight:700}
+#cotizaciones .cot-aviso{margin:10px 0;min-height:18px}
+#cotizaciones .cot-aviso.error{color:#9a2828}
+#cotizaciones .cot-aviso.ok{color:#147443}
+#cotizaciones .cot-history{margin-top:20px}
+@media(max-width:900px){#cotizaciones .cot-grid{grid-template-columns:1fr}}
+@media(max-width:550px){#cotizaciones .cot-fields{grid-template-columns:1fr}}
