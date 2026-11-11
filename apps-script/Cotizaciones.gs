@@ -79,7 +79,7 @@ function quotationSave_(e){
   const id=cotStr_(b.id_cotizacion,100),old=id?cotFind_(head,id):null;
   if(id&&!old)throw Error('Cotización no encontrada, no se puede actualizar.');
   if(old&&Number(b.version)!==Number(old.row.version))throw Error('La cotización cambió desde que la abriste. Recarga antes de guardar.');
-  if(old&&['ACEPTADA','RECHAZADA'].includes(String(old.row.estado)))throw Error('No puedes editar una cotización cerrada; duplica su contenido en una nueva.');
+  if(old&&String(old.row.estado)!=='BORRADOR')throw Error('Solo se pueden editar BORRADORES. Duplica una cotización emitida o cerrada.');
   const newId=old?id:('COT-'+Utilities.formatDate(now,tz,'yyyyMMdd-HHmmss')+'-'+Math.floor(Math.random()*900+100));
   const created=old?old.row.created_at:now,version=old?Number(old.row.version)+1:1;
   const expires=new Date(now.getTime());expires.setDate(expires.getDate()+vigencia);
@@ -106,6 +106,7 @@ function quotationPdf_(e){
   const b=readBody_(e).data||{},id=cotStr_(b.id_cotizacion,100);if(!id)throw Error('id_cotizacion requerido.');
   const {head,det}=cotSheets_(),found=cotFind_(head,id);if(!found)throw Error('Cotización no encontrada.');
   const q=found.row,dr=det.getDataRange().getValues(),dh=dr.shift()||[];
+  if(['ACEPTADA','RECHAZADA'].includes(String(q.estado)))throw Error('No se puede emitir nuevamente una cotización cerrada.');
   const items=dr.filter(r=>String(r[0])===id).map(r=>cotHeader_(dh,r)).sort((a,b)=>Number(a.linea)-Number(b.linea));
   if(!items.length)throw Error('La cotización no tiene artículos.');
   // Crear PDF a partir de Google Docs sin modificar archivos existentes.
