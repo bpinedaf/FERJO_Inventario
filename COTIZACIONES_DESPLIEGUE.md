@@ -80,3 +80,24 @@ El guardado del detalle y encabezado usa \`LockService\` y control de versión. 
 La generación de PDF depende de permisos de Google Drive/Docs. El documento temporal se elimina tras generar el archivo PDF. Verificar configuración de permisos de la carpeta resultante antes de compartir con clientes.
 
 **Se recomienda aislar los datos de prueba y validar la implantación con Fernando antes de activar este módulo en la base de producción.**
+
+
+## Entorno TEST ya creado (11 nov 2026)
+
+- Copia privada de la base FERJO: https://docs.google.com/spreadsheets/d/1IpMHS_4jtmOSFr_J-TCUxuc_86snAdOB3gq4oXSphwo/edit
+- Copia separada de la base operativa: \`1IpMHS_4jtmOSFr_J-TCUxuc_86snAdOB3gq4oXSphwo\`.
+- Hojas \`cotizaciones\` y \`cotizaciones_detalle\`: creadas, con encabezados correctos y primera fila congelada.
+- Es una copia que incluye información real histórica de FERJO. Mantener privada; usar exclusivamente usuarios autorizados y no compartir el enlace con terceros.
+- Todavía NO se ha configurado/creado un despliegue Apps Script TEST, porque no hay herramienta conectada con capacidad de crear o actualizar proyectos Apps Script.
+- Al crear el proyecto TEST, establecer exactamente:
+  \`CFG.SHEET_ID = '1IpMHS_4jtmOSFr_J-TCUxuc_86snAdOB3gq4oXSphwo'\`
+- No reutilizar el despliegue productivo que referencia \`1A3bawnMDwPcx2aeUkP7gACL5ddvBmCX3MutSR-UL7BU\`.
+- En la interfaz del Deploy Preview de Netlify, establecer manualmente la URL del Apps Script TEST en el campo \`API URL\`. Es **persistente en localStorage por origen**; no usar el origen productivo para pruebas.
+- El preview \`https://deploy-preview-1--ferjo-system.netlify.app\` requiere estar autorizado por Google Identity Services como origen JavaScript o emplear un cliente OAuth distinto de pruebas.
+- **Secuencia de publicación**: primero backend compatible en Apps Script productivo, después merge del Pull Request de GitHub a \`main\`.
+
+## Revisión técnica previa a producción
+- Los descuentos globales y por línea son conceptos distintos: \`precio_unitario\` ya refleja cambios por línea, y el porcentaje global se aplica después. No duplicar descuentos.
+- Para proteger cotizaciones emitidas, solo se pueden actualizar documentos en estado BORRADOR. Una EMITIDA puede duplicarse y guardarse como nueva.
+- Los estados ACEPTADA y RECHAZADA no permiten reemitir PDF.
+- No utilizar \`quotation_save\` desde entornos de prueba apuntados a la base productiva.
