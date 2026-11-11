@@ -17,7 +17,11 @@ function cotSheets_(){
  if(COT_HEAD.some((x,i)=>h[i]!==x)||COT_DET.some((x,i)=>d[i]!==x))throw Error('Estructura de cotizaciones incompatible. No se realizaron cambios.');
  return {head,det};
 }
-function cotHeader_(head,row){const o={};head.forEach((x,i)=>o[x]=row[i]);return o;}
+function cotHeader_(head,row){
+ const o={},tz=Session.getScriptTimeZone()||'America/Guatemala';
+ head.forEach((x,i)=>{const v=row[i];o[x]=v instanceof Date?(x==='fecha'||x==='fecha_vencimiento'?Utilities.formatDate(v,tz,'yyyy-MM-dd'):v.toISOString()):v;});
+ return o;
+}
 function cotRow_(head,obj){return head.map(k=>obj[k]===undefined?'':obj[k]);}
 function cotFind_(sh,id){
  const v=sh.getDataRange().getValues();const h=v[0]||[],col=h.indexOf('id_cotizacion');
