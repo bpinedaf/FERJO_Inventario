@@ -85,3 +85,11 @@ El propietario indicó que Cotizaciones debe compartir la carpeta ya utilizada p
 El módulo ahora toma FERJO_COTIZACIONES_FOLDER_ID si está configurado; en su ausencia usa CFG.DRIVE_RECEIPTS_FOLDER_ID. Ya no guarda silenciosamente en la raíz. Valida acceso al destino antes de crear documentos y no modifica permisos ni publica archivos. Preparado en la rama feature/cotizaciones y guardado en el editor TEST; **todavía no desplegado ni validado generando un PDF en esa carpeta**.
 
 Bloqueo verificado: Drive muestra You need access al abrir la carpeta con `bpinedaf.apps@gmail.com`, cuenta ejecutora de TEST. Hace falta acceso Editor para esa cuenta, o realizar la prueba con una cuenta ejecutora que ya tenga permisos. No se envió una solicitud de acceso ni se cambiaron permisos. Los vendedores/owner conservarán los accesos que ya tengan en la carpeta; hay que verificar herencia con un nuevo PDF cuando se resuelva el acceso del ejecutor.
+
+## Prueba de carpeta completada — 12 nov 2026, 07:25–07:28
+
+El propietario otorgó Editor a bpinedaf.apps@gmail.com. Se verificó acceso a RECIBOS y se publicó TEST **versión 4**, conservando la URL y acceso Anyone ya autorizado. PDF generado desde preview para COT-20261112-072648-640, total Q53.46: https://drive.google.com/file/d/1XXamfJ71kZWELpiOgZOT6PyanMGXl0QE/view?usp=drivesdk . La fila del archivo Cotizacion_COT-20261112-072648-640_v1.pdf se verificó dentro de RECIBOS.
+
+**Hallazgo sobre acceso de vendedores:** el diálogo de compartir de RECIBOS muestra solo importadoraferjo@gmail.com (Owner) y bpinedaf.apps@gmail.com (Editor), con acceso general Restricted. El PDF nuevo hereda acceso para importadoraferjo@gmail.com (Editor); su propietario es la cuenta ejecutora TEST. No hay vendedores adicionales en esa lista.
+
+Se leyó generateVentaReceipt_ del código productivo sin modificarlo y se confirmó que los PDF de ventas usan pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW). Por tanto, su acceso por vendedores depende del enlace público del archivo, no de una compartición de carpeta para esos vendedores. Esa política **no se ha aplicado a Cotizaciones**: se requiere confirmar expresamente el acceso de cualquier persona que posea el enlace, o identificar los vendedores/grupo a compartir de forma restringida. Producción y PR sin publicar.
