@@ -1,0 +1,105 @@
+# Cotizaciones — resultados TEST (11–12 noviembre 2026)
+
+## Estado
+
+Backend integrado y probado en proyecto TEST independiente. Flujo principal validado desde Deploy Preview con autenticación Google real de usuario con rol inventario. Producción sin modificar. Mantener PR #1 en borrador hasta revisión final de publicación; no se ha fusionado.
+
+- Proyecto TEST: https://script.google.com/u/0/home/projects/1BctTZNDIhV_Js7IbbQEu-5v7g5sxBC0dYRROkNCpGZYgq9btMOZqTAzr/edit
+- CFG.SHEET_ID TEST: `1IpMHS_4jtmOSFr_J-TCUxuc_86snAdOB3gq4oXSphwo`.
+- API TEST: https://script.google.com/macros/s/AKfycbwECUbeMHLRBjpeiSyuuAstiCjLOTsjJOMCZ77z90rpmfiRRqpzGIfYvd-ng9qTk20S4w/exec
+- Despliegue TEST **versión 5**, publicado el 12 noviembre 2026, 07:04 (Guatemala), con acceso **Anyone**, autorizado expresamente por Billy. Ejecuta como propietario y conserva su URL.
+- Solo en TEST se añadió ferjoTestRouteGuard_: Cotizaciones y me conservan sus controles originales; las demás rutas requieren token válido y rol admin. Así las antiguas rutas públicas no exponen la copia histórica. **No copiar esta protección específica de TEST a producción.**
+- Preview configurado mediante su campo API URL para usar TEST, separado de la configuración productiva.
+
+## Integración realizada
+
+Se reutilizó el proyecto vinculado a la copia de Sheets, se renombró a FERJO TEST Cotizaciones API y se sustituyó exclusivamente su CFG.SHEET_ID. Se añadió Cotizaciones.gs y las tres rutas GET y tres rutas POST sin eliminar rutas existentes. Se verificó por lectura completa del editor que Code.gs guardado coincide con el contenido preparado y no conserva el ID de la hoja productiva.
+
+La revisión visual del primer PDF detectó fechas de Sheets serializadas como texto con hora y zona. Corregido en cotHeader_: fecha/fecha_vencimiento se normalizan a yyyy-MM-dd y los demás Date a ISO. Corrección incluida en commit dc7291e6ee5e895d194aed38c226d7fcf9d08c73.
+
+## Alcance real de las pruebas
+
+30 comprobaciones satisfactorias ejecutadas desde el editor Apps Script contra Sheets/Drive/Docs reales de TEST. La suite TestCotizaciones.gs tiene guardas de ID de proyecto y de hoja. Primero prueba los routers con la autenticación real sin token. Para las pruebas de negocio sustituye requireAuth_ temporalmente durante esa ejecución por un contexto sintético de ventas y lo restaura en finally. Esto **no acredita autenticación Google Identity exitosa ni permisos de usuarios reales**. La suite nunca debe copiarse a producción.
+
+Comprobado:
+
+- Los seis endpoints rechazan solicitudes sin token; contexto sin roles rechazado.
+- Catálogo disponible, búsqueda por código y respuesta sin costos.
+- Guardar dos líneas: 3 × Q19.80 + 2 × Q7.35 = Q74.10; descuento 10% = Q7.41; total Q66.69.
+- Leer encabezado/detalle, fechas ISO e historial.
+- Actualizar y eliminar una línea: Q59.40 menos Q5.94 = Q53.46; versión incrementada.
+- Rechazar versión obsoleta, producto repetido y descuento mayor de 100%.
+- Guardar artículo sin stock y duplicar con nuevo ID.
+- Generar PDF real y comprobar visualmente fechas, cantidades, descuento y total. Sin logo configurado: cabecera textual.
+- EMITIDA bloquea edición; transición a ACEPTADA o RECHAZADA; rechazo de transición inválida, versión obsoleta y reemisión tras cierre.
+- Auditoría registrada.
+- Comparación SHA256 antes/después de todos los valores de Base_Inventario, ventas, ventas_detalle, movimientos, cobros, cierres_caja, compras y compras_detalle: iguales.
+- Prueba HTTP del despliegue quotation_list sin token: {"ok":false,"error":"No token"}.
+
+PDF de segunda ejecución: https://drive.google.com/file/d/11LcrJA8FKMzlBciZEmFZafNZCnDWo5Eb/view
+
+## Validación frontend real — 12 noviembre
+
+- Origen OAuth del preview corregido por el propietario. Ya no aparece origin_mismatch.
+- Google Identity autentica bpinedaf.apps@gmail.com; backend devuelve sus roles productos, fotos, inventario y reportes. El permiso inventario habilita Cotizaciones sin añadir roles.
+- El preview conserva API TEST mediante su campo API URL y localStorage del origen de pruebas.
+- Catálogo e historial cargados desde TEST; advertencia al agregar artículo sin stock.
+- Guardar dos líneas: subtotal Q74.10, descuento Q7.41, total Q66.69; ID COT-20261112-070726-324.
+- Reabrir: recupera cliente, cantidades, precios y descuento. Eliminar segunda línea y guardar: total Q53.46.
+- Emitir PDF y marcar primera cotización ACEPTADA.
+- Duplicar la anterior, cambiar cliente y guardar: nuevo ID COT-20261112-071025-738, total Q53.46.
+- Emitir PDF del duplicado; enlace Abrir PDF abre Drive correctamente. Documento privado, una página, fechas 2026-11-12/2026-11-27, tres unidades a Q19.80, subtotal Q59.40, descuento Q5.94, total Q53.46.
+- Marcar duplicado RECHAZADA: historial y cabecera muestran el mismo estado. Intentar guardar después del cierre: rechazo esperado «Solo se pueden editar BORRADORES».
+- Reload del preview restaura sesión y mantiene API TEST.
+
+PDF de prueba de interfaz: https://drive.google.com/file/d/1Bc3TIlWU3YZqsDb64Rz2_W3eIYpmnH84/view?pli=1
+
+### Correcciones encontradas durante prueba de interfaz
+
+- 8ba0f39acea6431ea7696e3806509ca8016e755e: reemplazar window.open después de await por enlace visible Abrir PDF, evitando dependencia de popup asíncrono.
+- fbfcbcbc8a41b580e7d084643b26844782a2520d: sincronizar estado en cabecera al aceptar/rechazar; texto apropiado al reabrir cotizaciones cerradas.
+- Ambas correcciones verificadas en el preview actualizado.
+
+## Comprobaciones adicionales de protección y regresión
+
+- Siete comprobaciones de guardas TEST satisfactorias: bloqueo sin token de products, sales_summary, quotation_list, requests, catalog_cart y quotation_save; rol ventas no accede al reporte legado reservado a admin en TEST.
+- Pruebas HTTP de versión 3: products y quotation_list sin token devuelven ok:false, error:No token.
+- Seis consultas de regresión ejecutadas desde editor sobre copia real TEST: inventory_list, sales_summary, sales_report, purchases_report, daily_cash_report y cxc_list devuelven ok:true. Comparación SHA256 de las ocho hojas operativas: sin cambios.
+- **Alcance de regresión**: contexto admin sintético durante esa ejecución, restaurado en finally. No es una prueba de autenticación real de administrador ni una regresión de registro/cancelación de ventas, compras, pagos o cierre de caja. No se crearon operaciones comerciales.
+
+## Pendientes antes de activar producción
+
+- Revisar con el propietario la presentación final y los datos comerciales impresos: FERJO S.A., 19 Calle Zona 1, teléfono 2251 6251. Logo opcional todavía sin configurar; cabecera textual verificada.
+- Comprobar usuario real de ventas y alcance de acceso a PDF para vendedores: los PDF creados son privados del ejecutor; el propietario sí pudo abrirlos. No se ha ampliado compartición de Drive. Definir carpeta/equipo autorizado antes de activar vendedores que necesiten abrir o entregar los documentos.
+- Google Sheets no ofrece transacción multitabla: no se ha hecho prueba destructiva de fallo intermedio y recuperación del guardado. Usar respaldo y revisión del procedimiento de reversión antes de publicación.
+- Si se exige regresión completa de operaciones comerciales, ejecutarla con datos sintéticos TEST y usuario administrador autorizado. Las pruebas actuales cubren consultas y el flujo real de Cotizaciones con rol inventario.
+
+## Preparación de producción
+
+Solo después de completar lo pendiente: respaldo del código y versión desplegada actual; añadir Cotizaciones.gs corregido; integrar únicamente seis rutas; conservar CFG.SHEET_ID productivo; revisar permisos Drive/Docs y carpeta privada de PDF; actualizar el despliegue productivo existente con New version (conservar URL); verificar endpoints; finalmente fusionar PR frontend y comprobar Netlify. No copiar TestCotizaciones.gs ni configuración TEST. Reversión: seleccionar versión previa del despliegue y revertir commit frontend si procede.
+
+## Ajuste de carpeta compartida — pendiente de acceso (12 nov)
+
+El propietario indicó que Cotizaciones debe compartir la carpeta ya utilizada por los PDF de ventas. Se confirmó por lectura del Code.gs productivo, sin modificarlo, que CFG.DRIVE_RECEIPTS_FOLDER_ID es `1IwJ-WjXvWVu_kXLZLoYvw1y7Pm3I_1v1` y coincide con TEST.
+
+El módulo ahora toma FERJO_COTIZACIONES_FOLDER_ID si está configurado; en su ausencia usa CFG.DRIVE_RECEIPTS_FOLDER_ID. Ya no guarda silenciosamente en la raíz. Valida acceso al destino antes de crear documentos y no modifica permisos ni publica archivos. Preparado en la rama feature/cotizaciones y guardado en el editor TEST; **todavía no desplegado ni validado generando un PDF en esa carpeta**.
+
+Bloqueo verificado: Drive muestra You need access al abrir la carpeta con `bpinedaf.apps@gmail.com`, cuenta ejecutora de TEST. Hace falta acceso Editor para esa cuenta, o realizar la prueba con una cuenta ejecutora que ya tenga permisos. No se envió una solicitud de acceso ni se cambiaron permisos. Los vendedores/owner conservarán los accesos que ya tengan en la carpeta; hay que verificar herencia con un nuevo PDF cuando se resuelva el acceso del ejecutor.
+
+## Prueba de carpeta completada — 12 nov 2026, 07:25–07:28
+
+El propietario otorgó Editor a bpinedaf.apps@gmail.com. Se verificó acceso a RECIBOS y se publicó TEST **versión 4**, conservando la URL y acceso Anyone ya autorizado. PDF generado desde preview para COT-20261112-072648-640, total Q53.46: https://drive.google.com/file/d/1XXamfJ71kZWELpiOgZOT6PyanMGXl0QE/view?usp=drivesdk . La fila del archivo Cotizacion_COT-20261112-072648-640_v1.pdf se verificó dentro de RECIBOS.
+
+**Hallazgo sobre acceso de vendedores:** el diálogo de compartir de RECIBOS muestra solo importadoraferjo@gmail.com (Owner) y bpinedaf.apps@gmail.com (Editor), con acceso general Restricted. El PDF nuevo hereda acceso para importadoraferjo@gmail.com (Editor); su propietario es la cuenta ejecutora TEST. No hay vendedores adicionales en esa lista.
+
+Se leyó generateVentaReceipt_ del código productivo sin modificarlo y se confirmó que los PDF de ventas usan pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW). Por tanto, su acceso por vendedores depende del enlace público del archivo, no de una compartición de carpeta para esos vendedores. Esa política **no se ha aplicado a Cotizaciones**: se requiere confirmar expresamente el acceso de cualquier persona que posea el enlace, o identificar los vendedores/grupo a compartir de forma restringida. Producción y PR sin publicar.
+
+## Lectura por enlace autorizada y verificada — TEST v5 (12 nov 2026)
+
+Billy autorizó expresamente aplicar a los PDF de cotizaciones la misma política de ventas: cualquiera con el enlace puede abrirlos. Se añadió pdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW) inmediatamente después de crear cada PDF. No se cambiaron permisos de carpeta ni otros documentos.
+
+Commit del módulo: 0fab6abcc6adf9f5de83405de9004d12e92c92d2. Publicado solo en el despliegue TEST existente como versión 5, 07:48 Guatemala, conservando URL y guardas TEST. En la preparación productiva este módulo incorpora automáticamente la misma política a los nuevos PDF.
+
+Se reemitió desde preview la cotización sintética COT-20261112-072648-640: generación correcta, Q53.46, archivo guardado por el módulo en RECIBOS. PDF nuevo: https://drive.google.com/file/d/1yGys3f9k4lI16Uez91wn5It9cGoxvx6B/view?usp=drivesdk . El diálogo Share confirma Anyone with the link, Viewer, Anyone on the internet with the link can view. Conserva a bpinedaf.apps@gmail.com como propietario y a importadoraferjo@gmail.com como Editor. La verificación fue por permisos efectivos de Drive; no se cerró sesión ni se hizo una prueba anónima independiente.
+
+El bloqueo de acceso a los nuevos PDF queda resuelto en TEST. Los antiguos PDF de pruebas no fueron modificados masivamente. Producción continúa sin cambios y PR #1 permanece en borrador. Las observaciones anteriores sobre falta de acceso al destino y sobre política aún no autorizada quedan superadas por esta prueba. Pendientes de publicación restantes: revisión comercial final/plantilla y procedimiento de respaldo-recuperación descritos arriba; no se afirma regresión transaccional completa de los módulos existentes.

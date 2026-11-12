@@ -1,0 +1,33 @@
+
+<section id="cotizaciones" class="panel" data-roles="admin,ventas,inventario">
+  <div class="panel-header"><div><h2>Cotizaciones</h2><p class="panel-subtitle">Preparar ofertas comerciales sin afectar el inventario ni la caja.</p></div></div>
+  <div class="cot-actions"><button type="button" id="cotNueva">Nueva cotización</button><button type="button" class="btn-secondary" id="cotActualizar">Actualizar historial</button></div>
+  <div id="cotAviso" class="cot-aviso" role="status" aria-live="polite"></div>
+  <div class="cot-grid">
+    <div class="cot-card">
+      <h3>Datos de la cotización</h3>
+      <div class="cot-fields">
+        <label>Cliente / empresa *<input id="cotCliente" maxlength="150" autocomplete="off"></label>
+        <label>Teléfono<input id="cotTelefono" maxlength="40"></label>
+        <label>Correo electrónico<input id="cotEmail" type="email" maxlength="150"></label>
+        <label>NIT<input id="cotNit" maxlength="30"></label>
+        <label>Vigencia (días)<input id="cotVigencia" type="number" min="1" max="365" value="15"></label>
+        <label>Condiciones de pago<input id="cotPago" value="A convenir" maxlength="250"></label>
+        <label>Entrega<input id="cotEntrega" value="Según disponibilidad" maxlength="250"></label>
+        <label>Descuento global (%)<input id="cotDescuento" type="number" min="0" max="100" step="0.01" value="0"></label>
+      </div>
+      <label>Observaciones<textarea id="cotNotas" rows="2" maxlength="1500"></textarea></label>
+      <h3>Agregar productos del inventario</h3>
+      <div class="cot-search"><input id="cotBuscar" placeholder="Buscar por código o nombre..." autocomplete="off"><button id="cotBuscarBtn" type="button" class="btn-secondary">Buscar</button></div>
+      <div id="cotResultados" class="cot-resultados"></div>
+    </div>
+    <div class="cot-card">
+      <div class="cot-toolbar"><h3>Productos cotizados</h3><span id="cotNumero">Nueva cotización</span></div>
+      <div class="cot-scroll"><table class="cot-table"><thead><tr><th>Artículo</th><th>Cant.</th><th>Precio Q</th><th>Total Q</th><th></th></tr></thead><tbody id="cotItems"><tr><td colspan="5">Agrega artículos para comenzar.</td></tr></tbody></table></div>
+      <div class="cot-totales"><div><span>Subtotal</span><strong id="cotSubtotal">Q 0.00</strong></div><div><span>Descuento</span><strong id="cotDescuentoMonto">Q 0.00</strong></div><div class="cot-total"><span>Total cotizado</span><strong id="cotTotal">Q 0.00</strong></div></div>
+      <div class="cot-actions"><button type="button" id="cotGuardar">Guardar cotización</button><button type="button" class="btn-secondary" id="cotPdf" disabled>Generar PDF</button></div>
+      <small>Las cotizaciones no reservan existencias. Los precios quedan registrados al guardar.</small>
+    </div>
+  </div>
+  <div class="cot-card cot-history"><h3>Historial de cotizaciones</h3><div class="cot-search"><input id="cotFiltro" placeholder="Buscar por número o cliente"><button type="button" id="cotFiltrar" class="btn-secondary">Filtrar</button></div><div class="cot-scroll"><table class="cot-table"><thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th>Estado</th><th>Total</th><th>Acciones</th></tr></thead><tbody id="cotHistorial"><tr><td colspan="6">Selecciona Actualizar historial.</td></tr></tbody></table></div></div>
+</section>
