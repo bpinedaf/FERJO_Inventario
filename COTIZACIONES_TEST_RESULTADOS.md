@@ -77,3 +77,11 @@ PDF de prueba de interfaz: https://drive.google.com/file/d/1Bc3TIlWU3YZqsDb64Rz2
 ## Preparación de producción
 
 Solo después de completar lo pendiente: respaldo del código y versión desplegada actual; añadir Cotizaciones.gs corregido; integrar únicamente seis rutas; conservar CFG.SHEET_ID productivo; revisar permisos Drive/Docs y carpeta privada de PDF; actualizar el despliegue productivo existente con New version (conservar URL); verificar endpoints; finalmente fusionar PR frontend y comprobar Netlify. No copiar TestCotizaciones.gs ni configuración TEST. Reversión: seleccionar versión previa del despliegue y revertir commit frontend si procede.
+
+## Ajuste de carpeta compartida — pendiente de acceso (12 nov)
+
+El propietario indicó que Cotizaciones debe compartir la carpeta ya utilizada por los PDF de ventas. Se confirmó por lectura del Code.gs productivo, sin modificarlo, que CFG.DRIVE_RECEIPTS_FOLDER_ID es `1IwJ-WjXvWVu_kXLZLoYvw1y7Pm3I_1v1` y coincide con TEST.
+
+El módulo ahora toma FERJO_COTIZACIONES_FOLDER_ID si está configurado; en su ausencia usa CFG.DRIVE_RECEIPTS_FOLDER_ID. Ya no guarda silenciosamente en la raíz. Valida acceso al destino antes de crear documentos y no modifica permisos ni publica archivos. Preparado en la rama feature/cotizaciones y guardado en el editor TEST; **todavía no desplegado ni validado generando un PDF en esa carpeta**.
+
+Bloqueo verificado: Drive muestra You need access al abrir la carpeta con `bpinedaf.apps@gmail.com`, cuenta ejecutora de TEST. Hace falta acceso Editor para esa cuenta, o realizar la prueba con una cuenta ejecutora que ya tenga permisos. No se envió una solicitud de acceso ni se cambiaron permisos. Los vendedores/owner conservarán los accesos que ya tengan en la carpeta; hay que verificar herencia con un nuevo PDF cuando se resuelva el acceso del ejecutor.
