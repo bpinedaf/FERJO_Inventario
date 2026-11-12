@@ -131,7 +131,7 @@ async function openQuotation(id){
 async function makePdf(){
  if(!state.id)return warn('Guarda la cotización antes de generar PDF.',true);
  const btn=$('cotPdf');btn.disabled=true;
- try{const r=await request('quotation_pdf',{id_cotizacion:state.id});state.status='EMITIDA';$('cotNumero').textContent=state.id+' · EMITIDA';warn('PDF generado correctamente.');if(r.doc_url)window.open(r.doc_url,'_blank','noopener');await loadHistory();}
+ try{const r=await request('quotation_pdf',{id_cotizacion:state.id});state.status='EMITIDA';$('cotNumero').textContent=state.id+' · EMITIDA';warn('PDF generado correctamente.');if(r.doc_url){const link=document.createElement('a');link.href=r.doc_url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Abrir PDF';$('cotAviso').append(' ',link);}await loadHistory();}
  catch(e){warn('Error al generar PDF: '+e.message,true);}
  finally{btn.disabled=false;}
 }
