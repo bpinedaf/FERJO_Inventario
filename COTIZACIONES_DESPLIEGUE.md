@@ -1,7 +1,7 @@
 # FERJO — Módulo Cotizaciones (rama de desarrollo)
 
 ## Estado
-Implementación en `feature/cotizaciones`, disponible en Deploy Preview y Apps Script TEST independiente. Backend: 30 comprobaciones satisfactorias. Validación integral del frontend pendiente por OAuth del preview. **No publicada en producción**; `main` permanece intacta. Ver `COTIZACIONES_TEST_RESULTADOS.md` para alcance, limitaciones y siguientes pasos.
+Implementación en `feature/cotizaciones`, disponible en Deploy Preview y Apps Script TEST independiente. Backend: 30 comprobaciones satisfactorias, 7 comprobaciones adicionales de protección y 6 consultas de regresión. Flujo principal de Cotizaciones validado desde el preview con Google Identity real. **No publicada en producción**; `main` permanece intacta. Ver `COTIZACIONES_TEST_RESULTADOS.md` para alcance, limitaciones y siguientes pasos.
 
 ### Funcionalidad disponible en el código
 - Pestaña Cotizaciones con permisos `admin,ventas,inventario`
@@ -88,7 +88,7 @@ La generación de PDF depende de permisos de Google Drive/Docs. El documento tem
 - Copia separada de la base operativa: `1IpMHS_4jtmOSFr_J-TCUxuc_86snAdOB3gq4oXSphwo`.
 - Hojas `cotizaciones` y `cotizaciones_detalle`: creadas, con encabezados correctos y primera fila congelada.
 - Es una copia que incluye información real histórica de FERJO. Mantener privada; usar exclusivamente usuarios autorizados y no compartir el enlace con terceros.
-- Proyecto y despliegue Apps Script TEST creados mediante navegador integrado. Proyecto: `1BctTZNDIhV_Js7IbbQEu-5v7g5sxBC0dYRROkNCpGZYgq9btMOZqTAzr`. Despliegue restringido a Only myself. Detalles y resultados: `COTIZACIONES_TEST_RESULTADOS.md`.
+- Proyecto y despliegue Apps Script TEST creados mediante navegador integrado. Proyecto: `1BctTZNDIhV_Js7IbbQEu-5v7g5sxBC0dYRROkNCpGZYgq9btMOZqTAzr`. Versión 3 desplegada con acceso Anyone autorizado por el propietario y rutas heredadas protegidas exclusivamente en TEST. Detalles y resultados: `COTIZACIONES_TEST_RESULTADOS.md`.
 - Al crear el proyecto TEST, establecer exactamente:
   `CFG.SHEET_ID = '1IpMHS_4jtmOSFr_J-TCUxuc_86snAdOB3gq4oXSphwo'`
 - No reutilizar el despliegue productivo que referencia `1A3bawnMDwPcx2aeUkP7gACL5ddvBmCX3MutSR-UL7BU`.
@@ -101,3 +101,18 @@ La generación de PDF depende de permisos de Google Drive/Docs. El documento tem
 - Para proteger cotizaciones emitidas, solo se pueden actualizar documentos en estado BORRADOR. Una EMITIDA puede duplicarse y guardarse como nueva.
 - Los estados ACEPTADA y RECHAZADA no permiten reemitir PDF.
 - No utilizar `quotation_save` desde entornos de prueba apuntados a la base productiva.
+
+## Secuencia concreta preparada para producción (12 nov 2026)
+
+**No ejecutada.** Conservar PR #1 en borrador hasta revisión final.
+
+1. Resolver alcance de acceso de vendedores a PDF (actualmente privados del ejecutor), confirmar encabezado comercial y logo opcional; revisar respaldo/recuperación de escrituras multitabla.
+2. Respaldar archivos actuales del proyecto productivo y anotar versión/ID del despliegue activo para reversión. No copiar código de pruebas.
+3. Añadir exclusivamente apps-script/Cotizaciones.gs corregido al proyecto productivo existente. Conservar CFG.SHEET_ID y configuración productiva.
+4. En doGet integrar quotation_products, quotation_list, quotation_get; en doPost quotation_save, quotation_pdf, quotation_status. Mantener las rutas actuales.
+5. Configurar carpeta privada de PDF y logo opcional, con accesos expresamente aprobados. Autorizar permisos Docs/Drive necesarios.
+6. Manage deployments → Edit → New version sobre el despliegue **existente** productivo; conservar su URL. No crear un nuevo despliegue productivo.
+7. Verificar respuesta de rutas nuevas y acceso autorizado; después marcar PR listo y fusionar frontend a main. Verificar deploy Netlify y navegación existente.
+8. Ante fallo: volver el despliegue Apps Script a la versión respaldada y revertir el commit frontend. Revisar y restaurar datos desde respaldo si el fallo alcanzó escrituras; revertir código no revierte hojas ni archivos PDF.
+
+No copiar TestCotizaciones.gs, ferjoTestRouteGuard_, IDs TEST ni la configuración del preview a producción.
