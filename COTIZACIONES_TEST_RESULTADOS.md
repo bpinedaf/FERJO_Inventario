@@ -7,7 +7,7 @@ Backend integrado y probado en proyecto TEST independiente. Flujo principal vali
 - Proyecto TEST: https://script.google.com/u/0/home/projects/1BctTZNDIhV_Js7IbbQEu-5v7g5sxBC0dYRROkNCpGZYgq9btMOZqTAzr/edit
 - CFG.SHEET_ID TEST: `1IpMHS_4jtmOSFr_J-TCUxuc_86snAdOB3gq4oXSphwo`.
 - API TEST: https://script.google.com/macros/s/AKfycbwECUbeMHLRBjpeiSyuuAstiCjLOTsjJOMCZ77z90rpmfiRRqpzGIfYvd-ng9qTk20S4w/exec
-- Despliegue TEST **versión 3**, publicado el 12 noviembre 2026, 07:04 (Guatemala), con acceso **Anyone**, autorizado expresamente por Billy. Ejecuta como propietario y conserva su URL.
+- Despliegue TEST **versión 5**, publicado el 12 noviembre 2026, 07:04 (Guatemala), con acceso **Anyone**, autorizado expresamente por Billy. Ejecuta como propietario y conserva su URL.
 - Solo en TEST se añadió ferjoTestRouteGuard_: Cotizaciones y me conservan sus controles originales; las demás rutas requieren token válido y rol admin. Así las antiguas rutas públicas no exponen la copia histórica. **No copiar esta protección específica de TEST a producción.**
 - Preview configurado mediante su campo API URL para usar TEST, separado de la configuración productiva.
 
@@ -93,3 +93,13 @@ El propietario otorgó Editor a bpinedaf.apps@gmail.com. Se verificó acceso a R
 **Hallazgo sobre acceso de vendedores:** el diálogo de compartir de RECIBOS muestra solo importadoraferjo@gmail.com (Owner) y bpinedaf.apps@gmail.com (Editor), con acceso general Restricted. El PDF nuevo hereda acceso para importadoraferjo@gmail.com (Editor); su propietario es la cuenta ejecutora TEST. No hay vendedores adicionales en esa lista.
 
 Se leyó generateVentaReceipt_ del código productivo sin modificarlo y se confirmó que los PDF de ventas usan pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW). Por tanto, su acceso por vendedores depende del enlace público del archivo, no de una compartición de carpeta para esos vendedores. Esa política **no se ha aplicado a Cotizaciones**: se requiere confirmar expresamente el acceso de cualquier persona que posea el enlace, o identificar los vendedores/grupo a compartir de forma restringida. Producción y PR sin publicar.
+
+## Lectura por enlace autorizada y verificada — TEST v5 (12 nov 2026)
+
+Billy autorizó expresamente aplicar a los PDF de cotizaciones la misma política de ventas: cualquiera con el enlace puede abrirlos. Se añadió pdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW) inmediatamente después de crear cada PDF. No se cambiaron permisos de carpeta ni otros documentos.
+
+Commit del módulo: 0fab6abcc6adf9f5de83405de9004d12e92c92d2. Publicado solo en el despliegue TEST existente como versión 5, 07:48 Guatemala, conservando URL y guardas TEST. En la preparación productiva este módulo incorpora automáticamente la misma política a los nuevos PDF.
+
+Se reemitió desde preview la cotización sintética COT-20261112-072648-640: generación correcta, Q53.46, archivo guardado por el módulo en RECIBOS. PDF nuevo: https://drive.google.com/file/d/1yGys3f9k4lI16Uez91wn5It9cGoxvx6B/view?usp=drivesdk . El diálogo Share confirma Anyone with the link, Viewer, Anyone on the internet with the link can view. Conserva a bpinedaf.apps@gmail.com como propietario y a importadoraferjo@gmail.com como Editor. La verificación fue por permisos efectivos de Drive; no se cerró sesión ni se hizo una prueba anónima independiente.
+
+El bloqueo de acceso a los nuevos PDF queda resuelto en TEST. Los antiguos PDF de pruebas no fueron modificados masivamente. Producción continúa sin cambios y PR #1 permanece en borrador. Las observaciones anteriores sobre falta de acceso al destino y sobre política aún no autorizada quedan superadas por esta prueba. Pendientes de publicación restantes: revisión comercial final/plantilla y procedimiento de respaldo-recuperación descritos arriba; no se afirma regresión transaccional completa de los módulos existentes.
