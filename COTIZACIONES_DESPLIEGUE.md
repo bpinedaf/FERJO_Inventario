@@ -41,7 +41,7 @@ Implementación en `feature/cotizaciones`, disponible en Deploy Preview y Apps S
 
 6. Ajustar **solo en el proyecto TEST** `CFG.SHEET_ID` para apuntar a la copia de Google Sheets.
 7. Configurar **Script Properties** opcionales:
-   - `FERJO_COTIZACIONES_FOLDER_ID`: carpeta de Drive destino para PDF. Sin ella, se guardan en la carpeta raíz del propietario del script.
+   - `FERJO_COTIZACIONES_FOLDER_ID`: carpeta de Drive destino para PDF. Sin ella, se utiliza CFG.DRIVE_RECEIPTS_FOLDER_ID, la carpeta de comprobantes de ventas. El ejecutor debe tener permiso para crear archivos allí; se heredan sus permisos existentes. No hay guardado alternativo en raíz.
    - `FERJO_LOGO_FILE_ID`: ID de imagen del logotipo FERJO subida a Drive y accesible al ejecutor. Si falta, PDF con cabecera textual.
 8. Crear un despliegue TEST de Apps Script; probar primero los endpoints con un token de usuario autorizado.
 9. Utilizar un deploy preview / sitio de pruebas que apunte a la API TEST. No alterar la configuración productiva `FERJO_API_BASE` de los usuarios.
