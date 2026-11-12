@@ -146,6 +146,8 @@ function quotationPdf_(e){
 
   const docFile=DriveApp.getFileById(doc.getId());
   const pdf=folder.createFile(docFile.getAs(MimeType.PDF).setName('Cotizacion_'+id+'_v'+q.version+'.pdf'));
+  // Política autorizada por el propietario: igual que los PDF de ventas.
+  pdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);
   docFile.setTrashed(true); // Solo elimina el documento temporal que creó esta función.
   const c=COT_HEAD.indexOf('doc_url')+1,s=COT_HEAD.indexOf('estado')+1,u=COT_HEAD.indexOf('updated_at')+1;
   head.getRange(found.index,c).setValue(pdf.getUrl());
