@@ -116,3 +116,7 @@ La generación de PDF depende de permisos de Google Drive/Docs. El documento tem
 8. Ante fallo: volver el despliegue Apps Script a la versión respaldada y revertir el commit frontend. Revisar y restaurar datos desde respaldo si el fallo alcanzó escrituras; revertir código no revierte hojas ni archivos PDF.
 
 No copiar TestCotizaciones.gs, ferjoTestRouteGuard_, IDs TEST ni la configuración del preview a producción.
+
+## Política de PDF aprobada (12 nov 2026)
+
+Los nuevos PDF de cotizaciones se guardan por defecto en CFG.DRIVE_RECEIPTS_FOLDER_ID (RECIBOS, igual que ventas) y el módulo aplica ANYONE_WITH_LINK + VIEW. Aprobado expresamente por el propietario y verificado en TEST v5 mediante el diálogo de permisos de un PDF generado desde preview. No modificar la compartición de toda la carpeta. Ya no está pendiente decidir la política de acceso de vendedores/clientes: pueden abrir los PDF con el enlace. Producción aún no publicada.
