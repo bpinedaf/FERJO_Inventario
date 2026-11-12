@@ -1,13 +1,14 @@
-# Cotizaciones — resultados TEST (11 noviembre 2026)
+# Cotizaciones — resultados TEST (11–12 noviembre 2026)
 
 ## Estado
 
-Backend integrado y probado en proyecto TEST independiente. Producción sin modificar. PR #1 debe continuar en borrador: la validación integral desde frontend y las regresiones de los módulos existentes siguen pendientes.
+Backend integrado y probado en proyecto TEST independiente. Flujo principal validado desde Deploy Preview con autenticación Google real de usuario con rol inventario. Producción sin modificar. Mantener PR #1 en borrador hasta revisión final de publicación; no se ha fusionado.
 
 - Proyecto TEST: https://script.google.com/u/0/home/projects/1BctTZNDIhV_Js7IbbQEu-5v7g5sxBC0dYRROkNCpGZYgq9btMOZqTAzr/edit
 - CFG.SHEET_ID TEST: `1IpMHS_4jtmOSFr_J-TCUxuc_86snAdOB3gq4oXSphwo`.
 - API TEST: https://script.google.com/macros/s/AKfycbwECUbeMHLRBjpeiSyuuAstiCjLOTsjJOMCZ77z90rpmfiRRqpzGIfYvd-ng9qTk20S4w/exec
-- Acceso del despliegue: **Only myself**, ejecuta como propietario. No se ha abierto a acceso público.
+- Despliegue TEST **versión 3**, publicado el 12 noviembre 2026, 07:04 (Guatemala), con acceso **Anyone**, autorizado expresamente por Billy. Ejecuta como propietario y conserva su URL.
+- Solo en TEST se añadió ferjoTestRouteGuard_: Cotizaciones y me conservan sus controles originales; las demás rutas requieren token válido y rol admin. Así las antiguas rutas públicas no exponen la copia histórica. **No copiar esta protección específica de TEST a producción.**
 - Preview configurado mediante su campo API URL para usar TEST, separado de la configuración productiva.
 
 ## Integración realizada
@@ -37,12 +38,41 @@ Comprobado:
 
 PDF de segunda ejecución: https://drive.google.com/file/d/11LcrJA8FKMzlBciZEmFZafNZCnDWo5Eb/view
 
-## Bloqueos de validación integral
+## Validación frontend real — 12 noviembre
 
-1. Google Identity rechaza el preview con `origin_mismatch`. Registrar exactamente `https://deploy-preview-1--ferjo-system.netlify.app` como Authorized JavaScript origin del cliente `852782550488-5k5d6gj1fn7q7sbqdn7l532r7pgo5r2t.apps.googleusercontent.com`, o usar cliente OAuth TEST independiente y actualizar únicamente TEST. Cloud Console devolvió Site Unavailable en el navegador integrado; no se pudo hacer el cambio.
-2. El despliegue TEST está limitado a Only myself. Antes de habilitar llamadas CORS del frontend mediante acceso Anyone, revisar y restringir en TEST las rutas públicas heredadas que podrían exponer la copia de datos reales. No abrir el backend completo sin esta revisión y autorización.
-3. Pendiente autenticación real de usuario autorizado, CRUD/PDF desde preview, comprobación visual del frontend y regresión funcional de Ventas, Compras, Caja, Reportes e Inventario.
-4. Pendiente logo y confirmación de datos comerciales del encabezado del PDF.
+- Origen OAuth del preview corregido por el propietario. Ya no aparece origin_mismatch.
+- Google Identity autentica bpinedaf.apps@gmail.com; backend devuelve sus roles productos, fotos, inventario y reportes. El permiso inventario habilita Cotizaciones sin añadir roles.
+- El preview conserva API TEST mediante su campo API URL y localStorage del origen de pruebas.
+- Catálogo e historial cargados desde TEST; advertencia al agregar artículo sin stock.
+- Guardar dos líneas: subtotal Q74.10, descuento Q7.41, total Q66.69; ID COT-20261112-070726-324.
+- Reabrir: recupera cliente, cantidades, precios y descuento. Eliminar segunda línea y guardar: total Q53.46.
+- Emitir PDF y marcar primera cotización ACEPTADA.
+- Duplicar la anterior, cambiar cliente y guardar: nuevo ID COT-20261112-071025-738, total Q53.46.
+- Emitir PDF del duplicado; enlace Abrir PDF abre Drive correctamente. Documento privado, una página, fechas 2026-11-12/2026-11-27, tres unidades a Q19.80, subtotal Q59.40, descuento Q5.94, total Q53.46.
+- Marcar duplicado RECHAZADA: historial y cabecera muestran el mismo estado. Intentar guardar después del cierre: rechazo esperado «Solo se pueden editar BORRADORES».
+- Reload del preview restaura sesión y mantiene API TEST.
+
+PDF de prueba de interfaz: https://drive.google.com/file/d/1Bc3TIlWU3YZqsDb64Rz2_W3eIYpmnH84/view?pli=1
+
+### Correcciones encontradas durante prueba de interfaz
+
+- 8ba0f39acea6431ea7696e3806509ca8016e755e: reemplazar window.open después de await por enlace visible Abrir PDF, evitando dependencia de popup asíncrono.
+- fbfcbcbc8a41b580e7d084643b26844782a2520d: sincronizar estado en cabecera al aceptar/rechazar; texto apropiado al reabrir cotizaciones cerradas.
+- Ambas correcciones verificadas en el preview actualizado.
+
+## Comprobaciones adicionales de protección y regresión
+
+- Siete comprobaciones de guardas TEST satisfactorias: bloqueo sin token de products, sales_summary, quotation_list, requests, catalog_cart y quotation_save; rol ventas no accede al reporte legado reservado a admin en TEST.
+- Pruebas HTTP de versión 3: products y quotation_list sin token devuelven ok:false, error:No token.
+- Seis consultas de regresión ejecutadas desde editor sobre copia real TEST: inventory_list, sales_summary, sales_report, purchases_report, daily_cash_report y cxc_list devuelven ok:true. Comparación SHA256 de las ocho hojas operativas: sin cambios.
+- **Alcance de regresión**: contexto admin sintético durante esa ejecución, restaurado en finally. No es una prueba de autenticación real de administrador ni una regresión de registro/cancelación de ventas, compras, pagos o cierre de caja. No se crearon operaciones comerciales.
+
+## Pendientes antes de activar producción
+
+- Revisar con el propietario la presentación final y los datos comerciales impresos: FERJO S.A., 19 Calle Zona 1, teléfono 2251 6251. Logo opcional todavía sin configurar; cabecera textual verificada.
+- Comprobar usuario real de ventas y alcance de acceso a PDF para vendedores: los PDF creados son privados del ejecutor; el propietario sí pudo abrirlos. No se ha ampliado compartición de Drive. Definir carpeta/equipo autorizado antes de activar vendedores que necesiten abrir o entregar los documentos.
+- Google Sheets no ofrece transacción multitabla: no se ha hecho prueba destructiva de fallo intermedio y recuperación del guardado. Usar respaldo y revisión del procedimiento de reversión antes de publicación.
+- Si se exige regresión completa de operaciones comerciales, ejecutarla con datos sintéticos TEST y usuario administrador autorizado. Las pruebas actuales cubren consultas y el flujo real de Cotizaciones con rol inventario.
 
 ## Preparación de producción
 
