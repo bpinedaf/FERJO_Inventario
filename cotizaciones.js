@@ -113,6 +113,7 @@ function drawHistory(){
   try{
     const detail=await request('quotation_get',null,{id_cotizacion:q.id_cotizacion});
     await request('quotation_status',{id_cotizacion:q.id_cotizacion,estado:status,version:detail.cotizacion.version});
+    if(state.id===q.id_cotizacion){state.status=status;$('cotNumero').textContent=state.id+' · '+status;}
     warn('Cotización '+q.id_cotizacion+' marcada como '+status+'.');await loadHistory();
   }catch(e){warn(e.message,true);}
  }));
@@ -125,7 +126,7 @@ async function openQuotation(id){
  const mapping={cotCliente:'cliente_nombre',cotTelefono:'cliente_telefono',cotEmail:'cliente_email',cotNit:'cliente_nit',cotVigencia:'vigencia_dias',cotPago:'forma_pago',cotEntrega:'entrega',cotNotas:'notas',cotDescuento:'descuento_porcentaje'};
  Object.keys(mapping).forEach(k=>$(k).value=q[mapping[k]]??'');
  state.items=(r.detalle||[]).map(x=>({...x,existencia:state.products.find(p=>String(p.id_del_articulo)===String(x.id_del_articulo))?.cantidad??'?'}));
- $('cotNumero').textContent=state.id+' · '+state.status;$('cotPdf').disabled=false;renderItems();warn('Cotización cargada. Puedes editar y guardar una nueva versión.');$('cotizaciones').scrollIntoView({behavior:'smooth'});
+ $('cotNumero').textContent=state.id+' · '+state.status;$('cotPdf').disabled=false;renderItems();warn(state.status==='BORRADOR'?'Cotización cargada. Puedes editar y guardar una nueva versión.':'Cotización cargada en estado '+state.status+'. Para modificarla, utiliza Duplicar.');$('cotizaciones').scrollIntoView({behavior:'smooth'});
  }catch(e){warn(e.message,true);}
 }
 async function makePdf(){
