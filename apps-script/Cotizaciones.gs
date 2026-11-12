@@ -103,6 +103,13 @@ function quotationSave_(e){
  }catch(err){return jsonResponse({ok:false,error:String(err.message||err)});}
  finally{try{lock.releaseLock();}catch(_){}}
 }
+function cotPdfFolder_(){
+ const configured=PropertiesService.getScriptProperties().getProperty('FERJO_COTIZACIONES_FOLDER_ID');
+ const folderId=String(configured||CFG.DRIVE_RECEIPTS_FOLDER_ID||'').trim();
+ if(!folderId)throw Error('No hay carpeta configurada para los PDF de cotizaciones.');
+ try{const folder=DriveApp.getFolderById(folderId);folder.getName();return folder;}
+ catch(_){throw Error('La cuenta que ejecuta Apps Script no tiene acceso a la carpeta de PDF configurada.');}
+}
 function quotationPdf_(e){
  const lock=LockService.getScriptLock();lock.waitLock(30000);
  try{
@@ -113,6 +120,8 @@ function quotationPdf_(e){
   if(['ACEPTADA','RECHAZADA'].includes(String(q.estado)))throw Error('No se puede emitir nuevamente una cotización cerrada.');
   const items=dr.filter(r=>String(r[0])===id).map(r=>cotHeader_(dh,r)).sort((a,b)=>Number(a.linea)-Number(b.linea));
   if(!items.length)throw Error('La cotización no tiene artículos.');
+  // Validar destino antes de crear documentos. Hereda los permisos existentes de la carpeta.
+  const folder=cotPdfFolder_();
   // Crear PDF a partir de Google Docs sin modificar archivos existentes.
   const doc=DocumentApp.create('FERJO Cotización '+id),body=doc.getBody();
   const logoId=(PropertiesService.getScriptProperties().getProperty('FERJO_LOGO_FILE_ID')||'').trim();
@@ -134,8 +143,7 @@ function quotationPdf_(e){
   if(q.notas)body.appendParagraph('Observaciones: '+q.notas);
   body.appendParagraph('Este documento es una cotización, no una factura. Precios y disponibilidad sujetos a confirmación.');
   doc.saveAndClose();
-  const folderId=(PropertiesService.getScriptProperties().getProperty('FERJO_COTIZACIONES_FOLDER_ID')||'').trim();
-  const folder=folderId?DriveApp.getFolderById(folderId):DriveApp.getRootFolder();
+
   const docFile=DriveApp.getFileById(doc.getId());
   const pdf=folder.createFile(docFile.getAs(MimeType.PDF).setName('Cotizacion_'+id+'_v'+q.version+'.pdf'));
   docFile.setTrashed(true); // Solo elimina el documento temporal que creó esta función.
